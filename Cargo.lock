@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "LevelTSDB"
+name = "level_tsdb"
 version = "0.1.0"

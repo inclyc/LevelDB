@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeSet, HashMap, VecDeque},
-    f32::consts::E,
     hash::Hash,
 };
 mod metrics;
@@ -8,6 +7,14 @@ use metrics::Metrics;
 struct TimestampElement<K, V> {
     timestamp: u64,
     dict: HashMap<K, V>,
+}
+
+impl<K: Eq + Hash, V> TimestampElement<K, V> {
+    fn new(timestamp: u64, pk: K, value: V) -> TimestampElement<K, V> {
+        let mut dict = HashMap::new();
+        dict.insert(pk, value);
+        TimestampElement { timestamp, dict }
+    }
 }
 
 struct MemoryBuffer<K, V> {
@@ -19,13 +26,6 @@ struct QueryResult<V> {
     result: BTreeSet<Metrics<V>>,
 }
 
-impl<K: Eq + Hash, V> TimestampElement<K, V> {
-    fn new(timestamp: u64, pk: K, value: V) -> TimestampElement<K, V> {
-        let mut dict = HashMap::new();
-        dict.insert(pk, value);
-        TimestampElement { timestamp, dict }
-    }
-}
 impl<K: Eq + Hash, V> MemoryBuffer<K, V> {
     fn new(lvlsize: usize) -> MemoryBuffer<K, V> {
         let mut levels = Vec::with_capacity(lvlsize);
@@ -86,19 +86,17 @@ mod test {
     use super::MemoryBuffer;
 
     #[test]
-    fn test_write() {
+    fn test_write_query() {
         let mut buffer = MemoryBuffer::new(64);
-        buffer.write(1, "string", 100);
-        buffer.write(1, "string", 110);
-        buffer.write(2, "string", 100);
-        buffer.write(3, "string", 100);
-        buffer.write(5, "string", 100);
-        buffer.write(4, "string", 100);
-        buffer.write(6, "string", 100);
-        buffer.write(7, "string", 100);
-        let result = buffer.query("string", 1).result;
-        assert_eq!(result.len(), 3); // 2 4 6
-        let result = buffer.query("string", 2).result;
-        assert_eq!(result.len(), 1) // 4
+        let test_pk = "some_pk";
+        for i in 1..8 {
+            buffer.write(i, test_pk, i);
+        }
+        assert_eq!(buffer.query(test_pk, 1).result.len(), 3); // 2 4 6
+        assert_eq!(buffer.query(test_pk, 2).result.len(), 1); // 4
+        assert_eq!(buffer.query(test_pk, 0).result.len(), 7);
+        for i in 1..8 {
+            assert_eq!(buffer.query("some_other_pk", i).result.len(), 0);
+        }
     }
 }

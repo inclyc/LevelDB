@@ -74,13 +74,16 @@ impl<V: AddAssign + Copy> Line<V> {
                 Some(origin_value) => *origin_value += value,
                 None => *agg = Some(value),
             }
+            if updating_timestamp == 0 {
+                break;
+            }
             let step = 1 << (updating_timestamp.trailing_zeros());
 
-            // 全程要求 current_index > 0
+            // 全程要求 current_index >= 0
             // 下一步的timestamp为 updating_timestamp - step
-            // 换算成 current_index = updating_timestamp - step - offset > 0
-            // 用加法而不是用0作比较是因为这里是无符号整数，updating_timestamp始终大于0
-            if updating_timestamp <= step + self.offset {
+            // 换算成 current_index = updating_timestamp - step - offset >= 0
+            // 用加法而不是用0作比较是因为这里是无符号整数，updating_timestamp始终 >= 0
+            if updating_timestamp < step + self.offset {
                 // i.e timestamp - step - offset < 0, buf we use u64 here
                 break;
             }
@@ -163,9 +166,7 @@ mod tests {
             }
             line.append(i, i);
             sum += i;
-            if i == 114 {
-                assert_eq!(line.query_agg(1 + i - 100), sum);
-            }
+            assert_eq!(line.query_agg(1 + i - 100), sum);
         }
     }
 

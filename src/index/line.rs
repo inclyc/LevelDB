@@ -165,6 +165,9 @@ mod tests {
                 None => (),
             }
             line.append(i, i);
+            assert_eq!(line.query_value(i).unwrap(), i);
+            assert_eq!(line.query_value(i - 1).unwrap(), i - 1);
+            assert_eq!(line.query_value(1 + i - 100).unwrap(), 1 + i - 100);
             sum += i;
             assert_eq!(line.query_agg(1 + i - 100), sum);
         }

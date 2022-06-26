@@ -104,7 +104,7 @@ impl<V: AddAssign + Copy> Line<V> {
                 None => (),
             }
         }
-        return result;
+        result
     }
 }
 

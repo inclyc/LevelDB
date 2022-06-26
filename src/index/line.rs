@@ -77,7 +77,7 @@ impl<V: AddAssign + Copy> Line<V> {
             self.aggregate.push_back(None);
         }
         if self.current_timestamp > timestamp {
-            panic!("line: append a timestamp lower than before given");
+            panic!("line: append a timestamp lower than given before");
         } else {
             self.current_timestamp = timestamp;
         }

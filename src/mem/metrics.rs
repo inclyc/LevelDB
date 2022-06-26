@@ -1,3 +1,4 @@
+/// query的查询结果为此类型的集合
 pub struct Metrics<V> {
     pub timestamp: u64,
     pub value: V,

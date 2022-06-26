@@ -1,3 +1,4 @@
+mod index;
 mod mem;
 
 fn main() {

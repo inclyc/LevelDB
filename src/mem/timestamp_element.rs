@@ -24,3 +24,16 @@ impl<K: Eq + Hash, V> TimestampElement<K, V> {
         self.timestamp
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::TimestampElement;
+
+    #[test]
+    fn test_get() {
+        let mut ts = TimestampElement::new(10, "100", 3);
+        assert_eq!(*ts.get(&"100").unwrap(), 3);
+        ts.insert("100", 4);
+        assert_eq!(*ts.get(&"100").unwrap(), 4);
+    }
+}

@@ -43,14 +43,39 @@ impl<V: AddAssign + Copy> Line<V> {
         }
     }
 
+    pub fn update_aggregate(&mut self, mut timestamp: u64, value: V) {
+        let mut index = timestamp - self.offset;
+        loop {
+            let agg = self.aggregate.get_mut(index.try_into().unwrap()).unwrap();
+            match agg {
+                Some(origin_value) => *origin_value += value,
+                None => *agg = Some(value),
+            }
+            // 如果timestamp巧好为0,则trailing_zeros()会panic
+            if timestamp == 0 {
+                break;
+            }
+            let step = 1 << (timestamp.trailing_zeros()); // timestamp != 0
+
+            // 全程要求 current_index >= 0
+            // 下一步的timestamp为 updating_timestamp - step
+            // 换算成 current_index = updating_timestamp - step - offset >= 0
+            // 用加法而不是用0作比较是因为这里是无符号整数，updating_timestamp始终 >= 0
+            if timestamp < step + self.offset {
+                // i.e timestamp - step - offset < 0, 数组更新边界
+                break;
+            }
+            timestamp -= step;
+            index = timestamp - self.offset; // > 0
+        }
+    }
+
     pub fn append(&mut self, timestamp: u64, value: V) {
         let target_index = timestamp - self.offset;
         while target_index >= self.data.len().try_into().unwrap() {
             self.data.push_back(None);
             self.aggregate.push_back(None);
         }
-        let mut current_index = target_index;
-        let mut updating_timestamp = timestamp;
         if self.current_timestamp > timestamp {
             panic!("line: append a timestamp lower than before given");
         } else {
@@ -65,31 +90,7 @@ impl<V: AddAssign + Copy> Line<V> {
                 *x = Some(value);
             }
         }
-        loop {
-            let agg = self
-                .aggregate
-                .get_mut(current_index.try_into().unwrap())
-                .unwrap();
-            match agg {
-                Some(origin_value) => *origin_value += value,
-                None => *agg = Some(value),
-            }
-            if updating_timestamp == 0 {
-                break;
-            }
-            let step = 1 << (updating_timestamp.trailing_zeros());
-
-            // 全程要求 current_index >= 0
-            // 下一步的timestamp为 updating_timestamp - step
-            // 换算成 current_index = updating_timestamp - step - offset >= 0
-            // 用加法而不是用0作比较是因为这里是无符号整数，updating_timestamp始终 >= 0
-            if updating_timestamp < step + self.offset {
-                // i.e timestamp - step - offset < 0, buf we use u64 here
-                break;
-            }
-            updating_timestamp -= step;
-            current_index = updating_timestamp - self.offset; // > 0
-        }
+        self.update_aggregate(timestamp, value)
     }
 
     pub fn query_value(&self, timestamp: u64) -> &Option<V> {

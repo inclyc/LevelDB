@@ -30,8 +30,25 @@ impl<V: AddAssign + Copy> Line<V> {
         }
     }
 
+    /// 获取并移除队列首部元素，取得所有权
+    pub fn pop_front(&mut self) -> Option<V> {
+        let ret = self.data.pop_front();
+        match ret {
+            Some(v) => {
+                self.offset += 1;
+                self.aggregate.pop_front();
+                v
+            }
+            None => None,
+        }
+    }
+
     pub fn append(&mut self, timestamp: u64, value: V) {
         let target_index = timestamp - self.offset;
+        while target_index >= self.data.len().try_into().unwrap() {
+            self.data.push_back(None);
+            self.aggregate.push_back(None);
+        }
         let mut current_index = target_index;
         let mut updating_timestamp = timestamp;
         if self.current_timestamp > timestamp {
@@ -77,18 +94,21 @@ impl<V: AddAssign + Copy> Line<V> {
         self.data.get(index.try_into().unwrap()).unwrap()
     }
 
+    /// 聚合查询某一Timestamp之后的值，timestamp必须已经插入过（存在）
+    /// panic: 如果timestamp这个时间戳从来没有插入过，则此函数panic
+    /// O(logn)
     pub fn query_agg(&self, timestamp: u64) -> V {
         let mut aggregating_index = timestamp - self.offset;
         let mut result = self
-            .data
+            .aggregate
             .get(aggregating_index.try_into().unwrap())
             .unwrap()
             .unwrap();
         let mut aggregating_timestamp = timestamp;
         loop {
             let step = 1 << (aggregating_timestamp.trailing_zeros());
-            // next = timestamp - offset + step < self.current_timestamp
-            if aggregating_timestamp + step >= self.offset + (self.current_timestamp as u64) {
+            // next = timestamp + step <= self.current_timestamp
+            if aggregating_timestamp + step > (self.current_timestamp as u64) {
                 break;
             }
             aggregating_timestamp = aggregating_timestamp + step;
@@ -112,24 +132,64 @@ impl<V: AddAssign + Copy> Line<V> {
 mod tests {
     use super::Line;
     #[test]
-    fn test_line() {
+    fn test_line() {}
+
+    #[test]
+    fn test_pop_front() {
         let mut line = Line::new(100, 0, 0);
         line.append(1, 2);
         line.append(2, 3);
         line.append(3, 4);
-        assert_eq!(line.query_value(1).unwrap(), 2);
-        assert_eq!(line.query_agg(1), 9);
+        line.pop_front(); // no "1" now
+        assert_eq!(line.query_value(2).unwrap(), 3);
+        assert_eq!(line.query_agg(2), 7);
+    }
+
+    #[test]
+    fn test_many_pop_front() {
+        let mut line = Line::new(100, 0, 0);
+        let mut sum = 0;
+        for i in 1..100 {
+            line.append(i, i);
+            sum += i;
+        }
+        for i in 100..1000000 {
+            let front = line.pop_front();
+            match front {
+                Some(front_value) => {
+                    sum -= front_value;
+                }
+                None => (),
+            }
+            line.append(i, i);
+            sum += i;
+            if i == 114 {
+                assert_eq!(line.query_agg(1 + i - 100), sum);
+            }
+        }
     }
 
     #[test]
     fn test_many_write() {
         let mut line = Line::new(1000000, 0, 0);
+        let mut sum: u64 = 0;
         for i in 1..1000000 {
             line.append(i, i);
+            sum += i;
+            assert_eq!(line.query_agg(1), sum);
         }
-        assert_eq!(line.query_agg(1), 499999500000);
+
         for i in 1..100 {
             assert_eq!(line.query_value(i).unwrap(), i);
         }
+    }
+
+    #[test]
+    fn test_uncontinuously_write() {
+        let mut line = Line::new(1000000, 0, 0);
+        for i in 1..10000 {
+            line.append(i * 2, i);
+        }
+        assert_eq!(line.query_agg(2), 49995000);
     }
 }

@@ -134,6 +134,9 @@ impl<V: AddAssign + Copy> Line<V> {
 
 #[cfg(test)]
 mod tests {
+    use rand::prelude::*;
+    use std::time::Instant;
+
     use super::Line;
     #[test]
     fn test_line() {}
@@ -196,5 +199,79 @@ mod tests {
             line.append(i * 2, i);
         }
         assert_eq!(line.query_agg(2), 49995000);
+    }
+
+    fn _write_n(l: &mut Line<u32>, n: u32) {
+        for i in 0..n {
+            l.append(i as u64, i % 100);
+        }
+    }
+
+    fn _write_pop_n(l: &mut Line<u32>, n: u32) {
+        for i in 0..(n / 2) {
+            l.append(i as u64, i % 100);
+        }
+        for i in (n / 2)..n {
+            l.append(i as u64, i % 100);
+            l.pop_front();
+        }
+    }
+
+    fn _query_n(l: &Line<u32>, n: u32) {
+        for _ in 0..n {
+            l.query_value(random::<u64>() % (n as u64));
+        }
+    }
+
+    #[test]
+    fn bench_write() {
+        for _n in [
+            100u32,
+            1000u32,
+            10000u32,
+            100000u32,
+            1000000u32,
+            10000000u32,
+            100000000u32,
+        ]
+        .iter()
+        {
+            let n = *_n;
+            let mut l = Line::new(n as usize, 0, 0);
+            let now = Instant::now();
+            _write_n(&mut l, n); // 199ns
+
+            // print time elasped
+            println!("{}", now.elapsed().as_nanos() as f64 / n as f64);
+
+            let mut l = Line::new(n as usize, 0, 0);
+            let now = Instant::now();
+            _write_pop_n(&mut l, n);
+
+            // print time elasped
+            println!("{}", now.elapsed().as_nanos() as f64 / n as f64);
+        }
+    }
+    #[test]
+    fn bench_read() {
+        for _n in [
+            100u32,
+            1000u32,
+            10000u32,
+            100000u32,
+            1000000u32,
+            10000000u32,
+            100000000u32,
+        ]
+        .iter()
+        {
+            let n = *_n;
+            let mut l = Line::new(n as usize, 0, 0);
+            _write_n(&mut l, n);
+            let now = Instant::now();
+            _query_n(&l, n);
+            // print time elasped
+            println!("{}", now.elapsed().as_nanos() as f64 / n as f64);
+        }
     }
 }

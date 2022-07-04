@@ -111,4 +111,17 @@ mod tests {
         } // 1.39s --release
         assert_eq!(buffer.query(test_pk, 5).len(), 312499);
     }
+
+    #[test]
+    fn bench_write() {
+        let mut buffer = MemoryBuffer::new(64, None);
+        let test_pk = 123i32;
+        let n = 1000000;
+        let start = std::time::Instant::now();
+        for i in 1..n {
+            buffer.write(i, test_pk, i);
+        }
+        let end = start.elapsed();
+        println!("{:?}", end.as_nanos() as f64 / n as f64);
+    }
 }

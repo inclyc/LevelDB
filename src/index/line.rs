@@ -195,10 +195,12 @@ mod tests {
     #[test]
     fn test_uncontinuously_write() {
         let mut line = Line::new(1000000, 0, 0);
+        let mut sum = 0;
         for i in 1..10000 {
             line.append(i * 2, i);
+            sum += i;
+            assert_eq!(line.query_agg(2), sum);
         }
-        assert_eq!(line.query_agg(2), 49995000);
     }
 
     fn _write_n(l: &mut Line<u32>, n: u32) {

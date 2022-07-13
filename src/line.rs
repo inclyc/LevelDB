@@ -1,4 +1,5 @@
-use std::{collections::VecDeque, ops::AddAssign};
+use crate::tree::Tree;
+use std::collections::VecDeque;
 
 pub struct Line<V> {
     // 数据用循环队列保存
@@ -12,10 +13,26 @@ pub struct Line<V> {
 
     // 长度
     current_timestamp: u64,
+
+    // 单位元
+    one: V,
+
+    // 聚合函数
+    agg_fn: fn(V, V) -> V,
 }
 
-impl<V: AddAssign + Copy> Line<V> {
-    pub fn new(length: usize, offset: u64, current_timestamp: u64) -> Line<V> {
+impl<V> Line<V> {
+    fn get_idx(&self, timestamp: u64) -> usize {
+        (timestamp - self.offset) as usize
+    }
+
+    pub fn new(
+        length: usize,
+        offset: u64,
+        current_timestamp: u64,
+        one: V,
+        agg_fn: fn(V, V) -> V,
+    ) -> Line<V> {
         let mut data = VecDeque::new();
         let mut aggregate = VecDeque::new();
 
@@ -27,6 +44,8 @@ impl<V: AddAssign + Copy> Line<V> {
             aggregate,
             offset,
             current_timestamp,
+            one,
+            agg_fn,
         }
     }
 
@@ -43,36 +62,73 @@ impl<V: AddAssign + Copy> Line<V> {
         }
     }
 
-    pub fn update_aggregate(&mut self, mut timestamp: u64, value: V) {
-        let mut index = timestamp - self.offset;
-        loop {
-            let agg = self.aggregate.get_mut(index.try_into().unwrap()).unwrap();
-            match agg {
-                Some(origin_value) => *origin_value += value,
-                None => *agg = Some(value),
-            }
-            // 如果timestamp巧好为0,则trailing_zeros()会panic
-            if timestamp == 0 {
-                break;
-            }
-            let step = 1 << (timestamp.trailing_zeros()); // timestamp != 0
+    pub fn query_value(&self, timestamp: u64) -> &Option<V> {
+        let idx = self.get_idx(timestamp);
+        self.data.get(idx.try_into().unwrap()).unwrap()
+    }
+}
 
-            // 全程要求 current_index >= 0
-            // 下一步的timestamp为 updating_timestamp - step
-            // 换算成 current_index = updating_timestamp - step - offset >= 0
-            // 用加法而不是用0作比较是因为这里是无符号整数，updating_timestamp始终 >= 0
-            if timestamp < step + self.offset {
-                // i.e timestamp - step - offset < 0, 数组更新边界
-                break;
-            }
-            timestamp -= step;
-            index = timestamp - self.offset; // > 0
+impl<V: Copy> Tree<V> for Line<V> {
+    fn agg(&self, timestamp: u64) -> Option<V> {
+        *self.aggregate.get(self.get_idx(timestamp)).unwrap()
+    }
+
+    fn set_agg(&mut self, timestamp: u64, value: V) {
+        let idx = self.get_idx(timestamp);
+        let agg = self.aggregate.get_mut(idx).unwrap();
+        match agg {
+            Some(origin_value) => *origin_value = value,
+            None => *agg = Some(value),
         }
     }
 
+    fn value(&self, timestamp: u64) -> Option<V> {
+        *self.data.get(self.get_idx(timestamp)).unwrap()
+    }
+
+    fn check_bound(&self, timestamp: u64) -> bool {
+        timestamp >= self.offset && timestamp <= self.current_timestamp
+    }
+
+    fn add_assign_agg(&mut self, timestamp: u64, value: V) {
+        let idx = self.get_idx(timestamp);
+        let agg = self.aggregate.get_mut(idx).unwrap();
+        match agg {
+            Some(origin_value) => {
+                let f = self.agg_fn;
+                *origin_value = f(*origin_value, value)
+            }
+            None => *agg = Some(value),
+        }
+    }
+
+    fn identity_agg(&self, timestamp: u64) -> V {
+        match self.aggregate.get(self.get_idx(timestamp)).unwrap() {
+            Some(v) => *v,
+            None => self.one,
+        }
+    }
+
+    fn identity_value(&self, timestamp: u64) -> V {
+        match self.data.get(self.get_idx(timestamp)).unwrap() {
+            Some(v) => *v,
+            None => self.one,
+        }
+    }
+
+    fn identity(&self) -> V {
+        self.one
+    }
+
+    fn agg_fn(&self) -> fn(V, V) -> V {
+        self.agg_fn
+    }
+}
+
+impl<V: Copy> Line<V> {
     pub fn append(&mut self, timestamp: u64, value: V) {
-        let target_index = timestamp - self.offset;
-        while target_index >= self.data.len().try_into().unwrap() {
+        let idx = self.get_idx(timestamp);
+        while idx >= self.data.len() {
             self.data.push_back(None);
             self.aggregate.push_back(None);
         }
@@ -81,7 +137,7 @@ impl<V: AddAssign + Copy> Line<V> {
         } else {
             self.current_timestamp = timestamp;
         }
-        let x = self.data.get_mut(target_index.try_into().unwrap()).unwrap();
+        let x = self.data.get_mut(idx).unwrap();
         match x {
             Some(origin_value) => {
                 *origin_value = value;
@@ -92,58 +148,45 @@ impl<V: AddAssign + Copy> Line<V> {
         }
         self.update_aggregate(timestamp, value)
     }
-
-    pub fn query_value(&self, timestamp: u64) -> &Option<V> {
-        let index = timestamp - self.offset;
-        self.data.get(index.try_into().unwrap()).unwrap()
-    }
-
-    /// 聚合查询某一Timestamp之后的值，timestamp必须已经插入过（存在）
-    /// panic: 如果timestamp这个时间戳从来没有插入过，则此函数panic
-    /// O(logn)
-    pub fn query_agg(&self, timestamp: u64) -> V {
-        let mut aggregating_index = timestamp - self.offset;
-        let mut result = self
-            .aggregate
-            .get(aggregating_index.try_into().unwrap())
-            .unwrap()
-            .unwrap();
-        let mut aggregating_timestamp = timestamp;
-        loop {
-            let step = 1 << (aggregating_timestamp.trailing_zeros());
-            // next = timestamp + step <= self.current_timestamp
-            if aggregating_timestamp + step > (self.current_timestamp as u64) {
-                break;
-            }
-            aggregating_timestamp = aggregating_timestamp + step;
-            aggregating_index = aggregating_timestamp - self.offset;
-            let agg = self
-                .aggregate
-                .get(aggregating_index.try_into().unwrap())
-                .unwrap();
-            match agg {
-                Some(v) => {
-                    result += *v;
-                }
-                None => (),
-            }
-        }
-        result
-    }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::tree::Tree;
     use rand::prelude::*;
     use std::time::Instant;
 
     use super::Line;
+
+    fn get_sum_line<T: std::ops::Add<Output = T>>(n: usize, one: T) -> Line<T> {
+        Line::new(n, 0, 0, one, |a, b| a + b)
+    }
+
+    fn get_max_line<T: Ord>(n: usize, one: T) -> Line<T> {
+        Line::new(n, 0, 0, one, |a, b| std::cmp::max(a, b))
+    }
+    
     #[test]
-    fn test_line() {}
+    fn test_max_query_range() {
+        let mut line = get_max_line(300, -10);
+        for i in 1..100 {
+            line.append(i as u64, i)
+        }
+        assert_eq!(line.query_range(2, 20), 19);
+    }
+
+    #[test]
+    fn test_query_range() {
+        let mut line = get_sum_line(100, 0);
+        line.append(1, 2);
+        line.append(2, 3);
+        line.append(3, 4);
+        assert_eq!(line.query_range(1, 3), 5);
+    }
 
     #[test]
     fn test_pop_front() {
-        let mut line = Line::new(100, 0, 0);
+        let mut line = get_sum_line(100, 0);
         line.append(1, 2);
         line.append(2, 3);
         line.append(3, 4);
@@ -154,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_many_pop_front() {
-        let mut line = Line::new(100, 0, 0);
+        let mut line = get_sum_line(100, 0);
         let mut sum = 0;
         for i in 1..100 {
             line.append(i, i);
@@ -179,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_many_write() {
-        let mut line = Line::new(1000000, 0, 0);
+        let mut line = get_sum_line(1000000, 0);
         let mut sum: u64 = 0;
         for i in 1..1000000 {
             line.append(i, i);
@@ -194,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_uncontinuously_write() {
-        let mut line = Line::new(1000000, 0, 0);
+        let mut line = get_sum_line(1000000, 0);
         let mut sum = 0;
         for i in 1..10000 {
             line.append(i * 2, i);
@@ -228,25 +271,25 @@ mod tests {
     #[test]
     fn bench_write() {
         for _n in [
-            100u32,
-            1000u32,
-            10000u32,
-            100000u32,
-            1000000u32,
-            10000000u32,
-            100000000u32,
+            100,
+            1000,
+            10000,
+            100000,
+            1000000,
+            10000000,
+            100000000,
         ]
         .iter()
         {
             let n = *_n;
-            let mut l = Line::new(n as usize, 0, 0);
+            let mut l = get_sum_line(n as usize, 0);
             let now = Instant::now();
             _write_n(&mut l, n); // 199ns
 
             // print time elasped
             println!("{}", now.elapsed().as_nanos() as f64 / n as f64);
 
-            let mut l = Line::new(n as usize, 0, 0);
+            let mut l = get_sum_line(n as usize, 0);
             let now = Instant::now();
             _write_pop_n(&mut l, n);
 
@@ -257,18 +300,18 @@ mod tests {
     #[test]
     fn bench_read() {
         for _n in [
-            100u32,
-            1000u32,
-            10000u32,
-            100000u32,
-            1000000u32,
-            10000000u32,
-            100000000u32,
+            100,
+            1000,
+            10000,
+            100000,
+            1000000,
+            10000000,
+            100000000,
         ]
         .iter()
         {
             let n = *_n;
-            let mut l = Line::new(n as usize, 0, 0);
+            let mut l = get_sum_line(n as usize, 0);
             _write_n(&mut l, n);
             let now = Instant::now();
             _query_n(&l, n);

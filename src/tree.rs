@@ -17,7 +17,7 @@ pub trait Tree<V: Copy> {
     fn agg_fn(&self) -> fn(V, V) -> V;
 
     /// 如果timestamp处对应的值不存在，应该返回单位元
-    fn identity_agg(&self, timestamp: u64) -> V {
+    fn agg_or_identity(&self, timestamp: u64) -> V {
         match self.agg(timestamp) {
             Some(v) => v,
             None => self.identity(),
@@ -25,7 +25,7 @@ pub trait Tree<V: Copy> {
     }
 
     /// 如果timestamp处对应的值不存在，应该返回单位元
-    fn identity_value(&self, timestamp: u64) -> V {
+    fn value_or_identity(&self, timestamp: u64) -> V {
         match self.value(timestamp) {
             Some(v) => v,
             None => self.identity(),
@@ -33,10 +33,10 @@ pub trait Tree<V: Copy> {
     }
 
     /// 插入，类似set_agg, 但是这次用+=
-    fn add_assign_agg(&mut self, timestamp: u64, value: V) {
+    fn add_agg(&mut self, timestamp: u64, value: V) {
         self.set_agg(
             timestamp,
-            self.agg_fn()(value, self.identity_agg(timestamp)),
+            self.agg_fn()(value, self.agg_or_identity(timestamp)),
         )
     }
 
@@ -45,14 +45,14 @@ pub trait Tree<V: Copy> {
     /// O(logn)
     fn query_agg(&self, timestamp: u64) -> V {
         let mut timestamp = timestamp;
-        let mut result = self.identity_agg(timestamp);
+        let mut result = self.agg_or_identity(timestamp);
         loop {
             let step = 1 << (timestamp.trailing_zeros());
             if !self.check_bound(timestamp + step) {
                 break;
             }
             timestamp = timestamp + step;
-            result = self.agg_fn()(result, self.identity_agg(timestamp));
+            result = self.agg_fn()(result, self.agg_or_identity(timestamp));
         }
         result
     }
@@ -63,15 +63,18 @@ pub trait Tree<V: Copy> {
             return self.identity();
         }
         if start + 1 == end {
-            self.identity_value(start)
+            self.value_or_identity(start)
         } else {
             let step = 1 << (start.trailing_zeros());
             if step + start > end {
-                self.agg_fn()(self.query_range(start + 1, end), self.identity_value(start))
+                self.agg_fn()(
+                    self.query_range(start + 1, end),
+                    self.value_or_identity(start),
+                )
             } else {
                 self.agg_fn()(
                     self.query_range(start + step, end),
-                    self.identity_agg(start),
+                    self.agg_or_identity(start),
                 )
             }
         }
@@ -82,7 +85,7 @@ pub trait Tree<V: Copy> {
     fn update_aggregate(&mut self, timestamp: u64, value: V) {
         let mut timestamp = timestamp;
         loop {
-            self.add_assign_agg(timestamp, value);
+            self.add_agg(timestamp, value);
             if timestamp == 0 {
                 break;
             }

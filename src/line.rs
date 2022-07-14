@@ -15,7 +15,7 @@ pub struct Line<V> {
     current_timestamp: u64,
 
     // 单位元
-    one: V,
+    identity: V,
 
     // 聚合函数
     agg_fn: fn(V, V) -> V,
@@ -44,7 +44,7 @@ impl<V> Line<V> {
             aggregate,
             offset,
             current_timestamp,
-            one,
+            identity: one,
             agg_fn,
         }
     }
@@ -90,34 +90,8 @@ impl<V: Copy> Tree<V> for Line<V> {
         timestamp >= self.offset && timestamp <= self.current_timestamp
     }
 
-    fn add_assign_agg(&mut self, timestamp: u64, value: V) {
-        let idx = self.get_idx(timestamp);
-        let agg = self.aggregate.get_mut(idx).unwrap();
-        match agg {
-            Some(origin_value) => {
-                let f = self.agg_fn;
-                *origin_value = f(*origin_value, value)
-            }
-            None => *agg = Some(value),
-        }
-    }
-
-    fn identity_agg(&self, timestamp: u64) -> V {
-        match self.aggregate.get(self.get_idx(timestamp)).unwrap() {
-            Some(v) => *v,
-            None => self.one,
-        }
-    }
-
-    fn identity_value(&self, timestamp: u64) -> V {
-        match self.data.get(self.get_idx(timestamp)).unwrap() {
-            Some(v) => *v,
-            None => self.one,
-        }
-    }
-
     fn identity(&self) -> V {
-        self.one
+        self.identity
     }
 
     fn agg_fn(&self) -> fn(V, V) -> V {
@@ -165,7 +139,7 @@ mod tests {
     fn get_max_line<T: Ord>(n: usize, one: T) -> Line<T> {
         Line::new(n, 0, 0, one, |a, b| std::cmp::max(a, b))
     }
-    
+
     #[test]
     fn test_max_query_range() {
         let mut line = get_max_line(300, -10);
@@ -270,17 +244,7 @@ mod tests {
 
     #[test]
     fn bench_write() {
-        for _n in [
-            100,
-            1000,
-            10000,
-            100000,
-            1000000,
-            10000000,
-            100000000,
-        ]
-        .iter()
-        {
+        for _n in [100, 1000, 10000, 100000, 1000000, 10000000, 100000000].iter() {
             let n = *_n;
             let mut l = get_sum_line(n as usize, 0);
             let now = Instant::now();
@@ -299,17 +263,7 @@ mod tests {
     }
     #[test]
     fn bench_read() {
-        for _n in [
-            100,
-            1000,
-            10000,
-            100000,
-            1000000,
-            10000000,
-            100000000,
-        ]
-        .iter()
-        {
+        for _n in [100, 1000, 10000, 100000, 1000000, 10000000, 100000000].iter() {
             let n = *_n;
             let mut l = get_sum_line(n as usize, 0);
             _write_n(&mut l, n);

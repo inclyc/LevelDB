@@ -1,7 +1,5 @@
 use super::metric::Metric;
-use std::{
-    collections::{BTreeSet, VecDeque},
-};
+use std::collections::{BTreeSet, VecDeque};
 
 pub struct MemoryBuffer<V> {
     levels: Vec<Option<VecDeque<Metric<V>>>>,

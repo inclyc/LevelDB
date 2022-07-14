@@ -1,6 +1,6 @@
 pub struct Metric<T> {
     timestamp: u64,
-    value: T
+    value: T,
 }
 
 impl<V> Metric<V> {
@@ -10,7 +10,7 @@ impl<V> Metric<V> {
     pub fn value(&self) -> &V {
         &self.value
     }
-    
+
     pub fn set_value(&mut self, value: V) {
         self.value = value;
     }

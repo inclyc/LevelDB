@@ -41,7 +41,7 @@ pub trait Tree<V: Copy> {
     }
 
     /// 聚合查询某一Timestamp之后的值，timestamp必须已经插入过（存在）
-    /// panic: 如果timestamp这个时间戳从来没有插入过，则此函数panic
+    /// 如果 timestamp 这个时间戳从来没有插入过，不会影响结果
     /// O(logn)
     fn query_agg(&self, timestamp: u64) -> V {
         let mut timestamp = timestamp;

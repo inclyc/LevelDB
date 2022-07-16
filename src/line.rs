@@ -62,6 +62,7 @@ impl<V> Line<V> {
         }
     }
 
+    /// 查询位于 timestamp 处的具体数值
     pub fn query_value(&self, timestamp: u64) -> &Option<V> {
         let idx = self.get_idx(timestamp);
         self.data.get(idx.try_into().unwrap()).unwrap()

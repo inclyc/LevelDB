@@ -40,8 +40,9 @@ pub trait Tree<V: Copy> {
         )
     }
 
-    /// 聚合查询某一Timestamp之后的值，timestamp必须已经插入过（存在）
+    /// 聚合查询某一Timestamp之后的值
     /// 如果 timestamp 这个时间戳从来没有插入过，不会影响结果
+    /// 查询不到任何值，返回单位元
     /// O(logn)
     fn query_agg(&self, timestamp: u64) -> V {
         let mut timestamp = timestamp;
@@ -58,6 +59,7 @@ pub trait Tree<V: Copy> {
     }
 
     /// 查询时间戳区间 [start, end) 的所有数据(聚合值)
+    /// 查询不到任何值，返回单位元
     fn query_range(&self, start: u64, end: u64) -> V {
         if start == end {
             return self.identity();

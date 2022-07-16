@@ -30,7 +30,7 @@ impl<V> Line<V> {
         length: usize,
         offset: u64,
         current_timestamp: u64,
-        one: V,
+        identity: V,
         agg_fn: fn(V, V) -> V,
     ) -> Line<V> {
         let mut data = VecDeque::new();
@@ -44,7 +44,7 @@ impl<V> Line<V> {
             aggregate,
             offset,
             current_timestamp,
-            identity: one,
+            identity,
             agg_fn,
         }
     }
@@ -132,12 +132,12 @@ mod tests {
 
     use super::Line;
 
-    fn get_sum_line<T: std::ops::Add<Output = T>>(n: usize, one: T) -> Line<T> {
-        Line::new(n, 0, 0, one, |a, b| a + b)
+    fn get_sum_line<T: std::ops::Add<Output = T>>(n: usize, identity: T) -> Line<T> {
+        Line::new(n, 0, 0, identity, |a, b| a + b)
     }
 
-    fn get_max_line<T: Ord>(n: usize, one: T) -> Line<T> {
-        Line::new(n, 0, 0, one, |a, b| std::cmp::max(a, b))
+    fn get_max_line<T: Ord>(n: usize, identity: T) -> Line<T> {
+        Line::new(n, 0, 0, identity, |a, b| std::cmp::max(a, b))
     }
 
     #[test]

@@ -1,4 +1,4 @@
-mod index;
+mod fuzzy;
 mod line;
 mod tree;
 

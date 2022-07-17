@@ -10,10 +10,10 @@ pub struct Line<V> {
 
     /// 整个数据结构的“下标”应该无限增长
     /// 同时也是开始记录的时间
-    offset: u64,
+    start: u64,
 
     /// 目前记录的最后一个时间戳
-    current_timestamp: u64,
+    end: u64,
 
     /// 单位元
     identity: V,
@@ -24,16 +24,10 @@ pub struct Line<V> {
 
 impl<V> Line<V> {
     fn get_idx(&self, timestamp: u64) -> usize {
-        (timestamp - self.offset) as usize
+        (timestamp - self.start) as usize
     }
 
-    pub fn new(
-        length: usize,
-        offset: u64,
-        current_timestamp: u64,
-        identity: V,
-        agg_fn: fn(V, V) -> V,
-    ) -> Line<V> {
+    pub fn new(length: usize, start: u64, end: u64, identity: V, agg_fn: fn(V, V) -> V) -> Line<V> {
         let mut data = VecDeque::new();
         let mut aggregate = VecDeque::new();
 
@@ -43,8 +37,8 @@ impl<V> Line<V> {
         Line {
             data,
             aggregate,
-            offset,
-            current_timestamp,
+            start,
+            end,
             identity,
             agg_fn,
         }
@@ -53,14 +47,9 @@ impl<V> Line<V> {
     /// 获取并移除队列首部元素，取得所有权
     pub fn pop_front(&mut self) -> Option<V> {
         let ret = self.data.pop_front();
-        match ret {
-            Some(v) => {
-                self.offset += 1;
-                self.aggregate.pop_front();
-                v
-            }
-            None => None,
-        }
+        self.aggregate.pop_front();
+        self.start += 1;
+        ret.unwrap_or(None)
     }
 
     /// 查询位于 timestamp 处的具体数值
@@ -71,7 +60,7 @@ impl<V> Line<V> {
 
     /// 这个 Line 结构保存的时间的范围
     pub fn get_range(&self) -> (u64, u64) {
-        (self.offset, self.current_timestamp + 1)
+        (self.start, self.end)
     }
 }
 
@@ -94,7 +83,8 @@ impl<V: Copy> Tree<V> for Line<V> {
     }
 
     fn check_bound(&self, timestamp: u64) -> bool {
-        timestamp >= self.offset && timestamp <= self.current_timestamp
+        let (l, r) = self.get_range();
+        l <= timestamp && timestamp < r
     }
 
     fn identity(&self) -> V {
@@ -113,10 +103,10 @@ impl<V: Copy> Line<V> {
             self.data.push_back(None);
             self.aggregate.push_back(None);
         }
-        if self.current_timestamp > timestamp {
+        if self.end > timestamp + 1 {
             panic!("line: append a timestamp lower than given before");
         } else {
-            self.current_timestamp = timestamp;
+            self.end = timestamp + 1;
         }
         let x = self.data.get_mut(idx).unwrap();
         match x {
@@ -140,11 +130,11 @@ mod tests {
     use super::Line;
 
     fn get_sum_line<T: std::ops::Add<Output = T>>(n: usize, identity: T) -> Line<T> {
-        Line::new(n, 0, 0, identity, |a, b| a + b)
+        Line::new(n, 0, 1, identity, |a, b| a + b)
     }
 
     fn get_max_line<T: Ord>(n: usize, identity: T) -> Line<T> {
-        Line::new(n, 0, 0, identity, |a, b| std::cmp::max(a, b))
+        Line::new(n, 0, 1, identity, |a, b| std::cmp::max(a, b))
     }
 
     #[test]

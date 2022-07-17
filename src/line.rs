@@ -2,22 +2,23 @@ use crate::tree::Tree;
 use std::collections::VecDeque;
 
 pub struct Line<V> {
-    // 数据用循环队列保存
+    /// 数据用循环队列保存
     data: VecDeque<Option<V>>,
 
-    // 聚合操作缓存数组
+    /// 聚合操作缓存数组
     aggregate: VecDeque<Option<V>>,
 
-    // 整个数据结构的“下标”应该无限增长
+    /// 整个数据结构的“下标”应该无限增长
+    /// 同时也是开始记录的时间
     offset: u64,
 
-    // 长度
+    /// 目前记录的最后一个时间戳
     current_timestamp: u64,
 
-    // 单位元
+    /// 单位元
     identity: V,
 
-    // 聚合函数
+    /// 聚合函数
     agg_fn: fn(V, V) -> V,
 }
 
@@ -67,6 +68,11 @@ impl<V> Line<V> {
         let idx = self.get_idx(timestamp);
         self.data.get(idx.try_into().unwrap()).unwrap()
     }
+
+    /// 这个 Line 结构保存的时间的范围
+    pub fn get_range(&self) -> (u64, u64) {
+        (self.offset, self.current_timestamp + 1)
+    }
 }
 
 impl<V: Copy> Tree<V> for Line<V> {
@@ -115,7 +121,7 @@ impl<V: Copy> Line<V> {
         let x = self.data.get_mut(idx).unwrap();
         match x {
             Some(origin_value) => {
-                *origin_value = value;
+                *origin_value = (self.agg_fn)(*origin_value, value);
             }
             None => {
                 *x = Some(value);

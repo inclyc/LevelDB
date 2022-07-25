@@ -78,9 +78,6 @@ impl<V> Semigroup<V> for DataLine<V> {
 
 impl<V: Copy> DataLine<V> {
     pub fn insert_or_update(&mut self, timestamp: u64, value: V) {
-        if !self.check_range(timestamp) {
-            return;
-        }
         let idx = self.get_idx(timestamp);
         let x = self.data.get_mut(idx).unwrap();
         match x {

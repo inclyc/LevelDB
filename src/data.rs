@@ -40,9 +40,9 @@ impl<V: Copy> SkipQuery<V> for DataPart<V> {
         let lvl = timestamp.trailing_zeros();
         for i in (0..=lvl).rev() {
             let x = self.data.get(i as usize).unwrap();
-            if x.check_range(timestamp) {
+            if x.check_range(timestamp >> i) {
                 let (_, end) = x.get_range();
-                let level_r = std::cmp::min((1u64 << lvl) + timestamp, end);
+                let level_r = std::cmp::min((1u64 << lvl) + timestamp, end << i);
                 if level_r <= r {
                     match x.query_value(timestamp >> i) {
                         Some(v) => {

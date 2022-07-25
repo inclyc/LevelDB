@@ -47,6 +47,29 @@ impl<V> DataLine<V> {
     }
 }
 
+impl<V: Copy> DataLine<V> {
+    pub fn append(&mut self, timestamp: u64, value: V) {
+        let idx = self.get_idx(timestamp);
+        while idx >= self.data.len() {
+            self.data.push_back(None);
+        }
+        if self.end > timestamp + 1 {
+            panic!("line: append a timestamp lower than given before");
+        } else {
+            self.end = timestamp + 1;
+        }
+        let x = self.data.get_mut(idx).unwrap();
+        match x {
+            Some(origin_value) => {
+                *origin_value = value;
+            }
+            None => {
+                *x = Some(value);
+            }
+        }
+    }
+}
+
 struct DataPart<V> {
     data: Vec<DataLine<V>>,
 }
@@ -54,5 +77,27 @@ struct DataPart<V> {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_basic() {}
+    fn test_basic() {
+        let n = 1000;
+        let mut p = super::DataLine::new(100, 0, 1);
+        for i in 0..n {
+            p.append(i, i);
+            assert!(p.query_value(i).unwrap() == i)
+        }
+    }
+    #[test]
+    fn test_pop_front() {
+        let n = 100;
+        let mut p = super::DataLine::new(100, 0, 1);
+        for i in 0..n {
+            p.append(i, i);
+        }
+        for i in 0..n {
+            let x = p.pop_front().unwrap();
+            assert_eq!(i, x);
+        }
+        for i in 0..n {
+            p.append(i + n, i);
+        }
+    }
 }

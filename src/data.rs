@@ -69,6 +69,7 @@ mod test {
             x.append(i, i);
         }
         let r = x.query(4, 30);
-        println!("{:?}", r.unwrap());
+        assert_eq!(r.unwrap().0, 22);
+        assert_eq!(r.unwrap().1, 8);
     }
 }

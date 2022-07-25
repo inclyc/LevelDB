@@ -1,4 +1,4 @@
-use crate::{aggregate::Aggregate, data::DataPartition};
+use crate::{aggregate::Aggregate, data::SkipQuery};
 
 pub trait Tree<V: Copy>: Aggregate<V> {
     /// 如果timestamp处对应的值不存在，应该返回单位元
@@ -53,7 +53,7 @@ pub trait Tree<V: Copy>: Aggregate<V> {
     }
 }
 
-pub trait RangeTree<V: Copy>: Tree<V> + DataPartition<V> {
+pub trait RangeTree<V: Copy>: Tree<V> + SkipQuery<V> {
     /// 查询时间戳区间 [start, end) 的所有数据(聚合值)
     /// 查询不到任何值，返回单位元
     fn query_range(&self, start: u64, end: u64) -> V {

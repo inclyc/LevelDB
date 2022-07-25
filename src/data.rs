@@ -2,7 +2,7 @@
 
 use crate::line::Line;
 
-pub trait DataPartition<V> {
+pub trait SkipQuery<V> {
     fn push(&mut self, timestamp: u64, value: V);
 
     fn query(&self, timestamp: u64, r: u64) -> Option<(V, u64)>;
@@ -32,7 +32,7 @@ impl<V: Copy> DataPart<V> {
     }
 }
 
-impl<V: Copy> DataPartition<V> for DataPart<V> {
+impl<V: Copy> SkipQuery<V> for DataPart<V> {
     fn push(&mut self, timestamp: u64, value: V) {
         self.append(timestamp, value);
     }
@@ -59,7 +59,7 @@ impl<V: Copy> DataPartition<V> for DataPart<V> {
 }
 #[cfg(test)]
 mod test {
-    use super::{DataPart, DataPartition};
+    use super::{DataPart, SkipQuery};
 
     #[test]
     fn basic() {

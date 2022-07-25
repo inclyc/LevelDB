@@ -3,9 +3,9 @@
 use std::collections::VecDeque;
 
 pub trait DataPartition<V> {
-    fn push(timestamp: u64, value: V);
+    fn push(&mut self, timestamp: u64, value: V);
 
-    fn query(timestamp: u64, r: u64);
+    fn query(&self, timestamp: u64, r: u64) -> (V, u64);
 }
 
 struct DataLine<V> {
@@ -21,11 +21,15 @@ impl<V> DataLine<V> {
         (timestamp - self.start) as usize
     }
 
-    pub fn new(length: usize, start: u64, end: u64) -> DataLine<V> {
+    pub fn new(length: usize, start: u64) -> DataLine<V> {
         let mut data = VecDeque::new();
         data.resize_with(length, || None);
 
-        DataLine { data, start, end }
+        DataLine {
+            data,
+            start,
+            end: start,
+        }
     }
 
     /// 获取并移除队列首部元素，取得所有权
@@ -50,6 +54,7 @@ impl<V> DataLine<V> {
 impl<V: Copy> DataLine<V> {
     pub fn append(&mut self, timestamp: u64, value: V) {
         let idx = self.get_idx(timestamp);
+        // Padding
         while idx >= self.data.len() {
             self.data.push_back(None);
         }
@@ -74,12 +79,42 @@ struct DataPart<V> {
     data: Vec<DataLine<V>>,
 }
 
+impl<V> DataPart<V> {
+    fn new(start: u64, size_fn: fn(u64) -> usize) -> DataPart<V> {
+        let mut data: Vec<DataLine<V>> = Vec::new();
+        for i in 0..=64 {
+            data.push(DataLine::new(size_fn(i), start >> i));
+        }
+        DataPart { data }
+    }
+}
+
+impl<V: Copy> DataPart<V> {
+    fn append(&mut self, timestamp: u64, value: V) {
+        let lvl = timestamp.trailing_zeros();
+        for i in 0..lvl {
+            let x = self.data.get_mut(i as usize).unwrap();
+            x.append(timestamp >> i, value);
+        }
+    }
+}
+
+impl<V: Copy> DataPartition<V> for DataPart<V> {
+    fn push(&mut self, timestamp: u64, value: V) {
+        self.append(timestamp, value);
+    }
+
+    fn query(&self, timestamp: u64, r: u64) -> (V, u64) {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     #[test]
     fn test_basic() {
         let n = 1000;
-        let mut p = super::DataLine::new(100, 0, 1);
+        let mut p = super::DataLine::new(100, 0);
         for i in 0..n {
             p.append(i, i);
             assert!(p.query_value(i).unwrap() == i)
@@ -88,7 +123,7 @@ mod test {
     #[test]
     fn test_pop_front() {
         let n = 100;
-        let mut p = super::DataLine::new(100, 0, 1);
+        let mut p = super::DataLine::new(100, 0);
         for i in 0..n {
             p.append(i, i);
         }

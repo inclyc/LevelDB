@@ -13,7 +13,7 @@ struct DataPart<V> {
 }
 
 impl<V> DataPart<V> {
-    fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
+    pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<Line<V>> = Vec::new();
         for i in 0..=64 {
             data.push(Line::new(size_fn(i), start >> i, agg_fn));

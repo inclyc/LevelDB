@@ -55,26 +55,17 @@ impl<V> DataLine<V> {
     pub fn get_range(&self) -> (u64, u64) {
         (self.start, self.end)
     }
-}
 
-impl<V> Semigroup<V> for DataLine<V> {
-    fn agg_fn(&self) -> fn(V, V) -> V {
-        self.agg_fn
+    pub fn check_range(&self, timestamp: u64) -> bool {
+        let (start, end) = self.get_range();
+        start <= timestamp && timestamp < end
     }
-}
 
-impl<V: Copy> DataLine<V> {
-    pub fn append(&mut self, timestamp: u64, value: V) {
+    pub fn insert_or_update(&mut self, timestamp: u64, value: V) {
+        if !self.check_range(timestamp) {
+            return;
+        }
         let idx = self.get_idx(timestamp);
-        // Padding
-        while idx >= self.data.len() {
-            self.data.push_back(None);
-        }
-        if self.end > timestamp + 1 {
-            panic!("line: append a timestamp lower than given before");
-        } else {
-            self.end = timestamp + 1;
-        }
         let x = self.data.get_mut(idx).unwrap();
         match x {
             Some(origin_value) => {
@@ -84,6 +75,29 @@ impl<V: Copy> DataLine<V> {
                 *x = Some(value);
             }
         }
+    }
+
+    pub fn padding(&mut self, timestamp: u64) {
+        let idx = self.get_idx(timestamp);
+        // Padding
+        while idx >= self.data.len() {
+            self.data.push_back(None);
+        }
+    }
+    pub fn append(&mut self, timestamp: u64, value: V) {
+        if self.end > timestamp + 1 {
+            panic!("line: append a timestamp lower than given before");
+        } else {
+            self.end = timestamp + 1;
+            self.padding(timestamp);
+            self.insert_or_update(timestamp, value);
+        }
+    }
+}
+
+impl<V> Semigroup<V> for DataLine<V> {
+    fn agg_fn(&self) -> fn(V, V) -> V {
+        self.agg_fn
     }
 }
 
@@ -117,7 +131,7 @@ impl<V: Copy> DataPartition<V> for DataPart<V> {
     }
 
     fn query(&self, timestamp: u64, r: u64) -> (V, u64) {
-        !todo!()
+        todo!()
     }
 }
 

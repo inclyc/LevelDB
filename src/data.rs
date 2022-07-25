@@ -61,6 +61,22 @@ impl<V> DataLine<V> {
         start <= timestamp && timestamp < end
     }
 
+    pub fn padding(&mut self, timestamp: u64) {
+        let idx = self.get_idx(timestamp);
+        // Padding
+        while idx >= self.data.len() {
+            self.data.push_back(None);
+        }
+    }
+}
+
+impl<V> Semigroup<V> for DataLine<V> {
+    fn agg_fn(&self) -> fn(V, V) -> V {
+        self.agg_fn
+    }
+}
+
+impl<V: Copy> DataLine<V> {
     pub fn insert_or_update(&mut self, timestamp: u64, value: V) {
         if !self.check_range(timestamp) {
             return;
@@ -76,14 +92,6 @@ impl<V> DataLine<V> {
             }
         }
     }
-
-    pub fn padding(&mut self, timestamp: u64) {
-        let idx = self.get_idx(timestamp);
-        // Padding
-        while idx >= self.data.len() {
-            self.data.push_back(None);
-        }
-    }
     pub fn append(&mut self, timestamp: u64, value: V) {
         if self.end > timestamp + 1 {
             panic!("line: append a timestamp lower than given before");
@@ -92,12 +100,6 @@ impl<V> DataLine<V> {
             self.padding(timestamp);
             self.insert_or_update(timestamp, value);
         }
-    }
-}
-
-impl<V> Semigroup<V> for DataLine<V> {
-    fn agg_fn(&self) -> fn(V, V) -> V {
-        self.agg_fn
     }
 }
 

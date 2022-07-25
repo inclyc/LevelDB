@@ -78,7 +78,7 @@ impl<V: Copy> Line<V> {
         }
     }
     pub fn append(&mut self, timestamp: u64, value: V) {
-        if self.end > timestamp + 1 {
+        if timestamp + 1 < self.end {
             panic!("line: append a timestamp lower than given before");
         } else {
             self.end = timestamp + 1;

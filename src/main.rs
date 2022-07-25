@@ -1,5 +1,5 @@
-mod fuzzy;
-mod line;
+mod aggregate;
+mod data;
 mod tree;
 
 fn main() {

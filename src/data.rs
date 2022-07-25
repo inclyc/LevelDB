@@ -24,7 +24,6 @@ impl<V> DataPart<V> {
 
 impl<V: Copy> DataPart<V> {
     fn append(&mut self, timestamp: u64, value: V) {
-        let lvl = timestamp.trailing_zeros();
         for i in 0..64 {
             let x = self.data.get_mut(i as usize).unwrap();
             x.append(timestamp >> i, value);

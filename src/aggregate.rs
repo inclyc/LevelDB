@@ -1,4 +1,11 @@
-pub trait Aggregate<V> {
+pub trait Monoid<V> {
+    // 返回单位元
+    fn identity(&self) -> V;
+
+    fn agg_fn(&self) -> fn(V, V) -> V;
+}
+
+pub trait Aggregate<V>: Monoid<V> {
     /// 查询聚合值（缓存）
     fn agg(&self, timestamp: u64) -> Option<V>;
 
@@ -7,9 +14,4 @@ pub trait Aggregate<V> {
 
     /// 检查时间戳是否越界
     fn check_bound(&self, timestamp: u64) -> bool;
-
-    // 返回单位元
-    fn identity(&self) -> V;
-
-    fn agg_fn(&self) -> fn(V, V) -> V;
 }

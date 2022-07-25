@@ -1,11 +1,10 @@
-pub trait Monoid<V> {
-    // 返回单位元
-    fn identity(&self) -> V;
-
+pub trait Semigroup<V> {
     fn agg_fn(&self) -> fn(V, V) -> V;
 }
 
-pub trait Aggregate<V>: Monoid<V> {
+pub trait Aggregate<V>: Semigroup<V> {
+    // 返回单位元
+    fn identity(&self) -> V;
     /// 查询聚合值（缓存）
     fn agg(&self, timestamp: u64) -> Option<V>;
 

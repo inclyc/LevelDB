@@ -2,6 +2,8 @@
 
 use std::collections::VecDeque;
 
+use crate::aggregate::Semigroup;
+
 pub trait DataPartition<V> {
     fn push(&mut self, timestamp: u64, value: V);
 
@@ -14,6 +16,8 @@ struct DataLine<V> {
     start: u64,
 
     end: u64,
+
+    agg_fn: fn(V, V) -> V,
 }
 
 impl<V> DataLine<V> {
@@ -21,14 +25,16 @@ impl<V> DataLine<V> {
         (timestamp - self.start) as usize
     }
 
-    pub fn new(length: usize, start: u64) -> DataLine<V> {
+    pub fn new(length: usize, start: u64, agg_fn: fn(V, V) -> V) -> DataLine<V> {
         let mut data = VecDeque::new();
         data.resize_with(length, || None);
-
+        // 一开始 end == start, 这时表示为空
+        // 半开半闭语义 [start, end)
         DataLine {
             data,
             start,
             end: start,
+            agg_fn,
         }
     }
 
@@ -51,6 +57,12 @@ impl<V> DataLine<V> {
     }
 }
 
+impl<V> Semigroup<V> for DataLine<V> {
+    fn agg_fn(&self) -> fn(V, V) -> V {
+        self.agg_fn
+    }
+}
+
 impl<V: Copy> DataLine<V> {
     pub fn append(&mut self, timestamp: u64, value: V) {
         let idx = self.get_idx(timestamp);
@@ -66,7 +78,7 @@ impl<V: Copy> DataLine<V> {
         let x = self.data.get_mut(idx).unwrap();
         match x {
             Some(origin_value) => {
-                *origin_value = value;
+                *origin_value = (self.agg_fn)(*origin_value, value);
             }
             None => {
                 *x = Some(value);
@@ -80,10 +92,10 @@ struct DataPart<V> {
 }
 
 impl<V> DataPart<V> {
-    fn new(start: u64, size_fn: fn(u64) -> usize) -> DataPart<V> {
+    fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<DataLine<V>> = Vec::new();
         for i in 0..=64 {
-            data.push(DataLine::new(size_fn(i), start >> i));
+            data.push(DataLine::new(size_fn(i), start >> i, agg_fn));
         }
         DataPart { data }
     }
@@ -105,7 +117,7 @@ impl<V: Copy> DataPartition<V> for DataPart<V> {
     }
 
     fn query(&self, timestamp: u64, r: u64) -> (V, u64) {
-        todo!()
+        !todo!()
     }
 }
 
@@ -114,7 +126,7 @@ mod test {
     #[test]
     fn test_basic() {
         let n = 1000;
-        let mut p = super::DataLine::new(100, 0);
+        let mut p = super::DataLine::new(100, 0, |a, b| a + b);
         for i in 0..n {
             p.append(i, i);
             assert!(p.query_value(i).unwrap() == i)
@@ -123,7 +135,7 @@ mod test {
     #[test]
     fn test_pop_front() {
         let n = 100;
-        let mut p = super::DataLine::new(100, 0);
+        let mut p = super::DataLine::new(100, 0, |a, b| a + b);
         for i in 0..n {
             p.append(i, i);
         }

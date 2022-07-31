@@ -1,12 +1,7 @@
 //! 数据区
 
 use crate::line::Line;
-
-pub trait SkipQuery<V> {
-    fn push(&mut self, timestamp: u64, value: V);
-
-    fn query(&self, timestamp: u64, r: u64) -> Option<(V, u64)>;
-}
+use crate::traits::SkipQuery;
 
 struct DataPart<V> {
     data: Vec<Line<V>>,

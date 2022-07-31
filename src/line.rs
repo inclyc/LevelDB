@@ -58,7 +58,7 @@ impl<V> Line<V> {
     }
 }
 
-impl<V> crate::aggregate::Semigroup<V> for Line<V> {
+impl<V> crate::traits::Semigroup<V> for Line<V> {
     fn agg_fn(&self) -> fn(V, V) -> V {
         self.agg_fn
     }

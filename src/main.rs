@@ -1,7 +1,6 @@
-mod aggregate;
 mod data;
 mod line;
-mod tree;
+mod traits;
 
 fn main() {
     println!("Hello, world!");

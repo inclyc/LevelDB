@@ -38,11 +38,11 @@ impl<V: Copy> SkipQuery<V> for DataPart<V> {
 
     fn query(&self, timestamp: u64, r: u64) -> Option<(V, u64)> {
         let lvl = timestamp.trailing_zeros();
+        let (_, global_r) = self.data.get(0).unwrap().get_range();
         for i in (0..=lvl).rev() {
             let x = self.data.get(i as usize).unwrap();
             if x.check_range(timestamp >> i) {
-                let (_, end) = x.get_range();
-                let level_r = std::cmp::min((1u64 << i) + timestamp, end << i);
+                let level_r = std::cmp::min((1u64 << i) + timestamp, global_r);
                 if level_r <= r {
                     match x.query_value(timestamp >> i) {
                         Some(v) => {
@@ -88,6 +88,10 @@ mod test {
         }
         for i in 1..n {
             let (sum, r) = x.query(i, 1000).unwrap();
+            assert_eq!(answer(i, r), sum);
+            let (sum, r) = x.query(i, i + 1).unwrap();
+            assert_eq!(answer(i, r), sum);
+            let (sum, r) = x.query(i, i + 100).unwrap();
             assert_eq!(answer(i, r), sum);
         }
     }

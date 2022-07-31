@@ -93,7 +93,7 @@ mod test {
             x.push(i, i);
         }
         for i in 1..n {
-            let (sum, r) = x.constrained_query(i, 1000).unwrap();
+            let (sum, r) = x.constrained_query(i, n).unwrap();
             assert_eq!(answer(i, r), sum);
             let (sum, r) = x.constrained_query(i, i + 1).unwrap();
             assert_eq!(answer(i, r), sum);
@@ -108,7 +108,7 @@ mod test {
         }
 
         for i in 1..n {
-            assert_eq!(answer(i, 1000), x.suffix_query(i).unwrap().0)
+            assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
         }
     }
 }

@@ -73,11 +73,7 @@ mod test {
     }
 
     fn answer(l: u64, r: u64) -> u64 {
-        let mut sum = 0;
-        for i in l..r {
-            sum += i;
-        }
-        return sum;
+        return (r - l) * (l + r - 1) / 2;
     }
     #[test]
     fn correct() {

@@ -29,7 +29,7 @@ impl<V: Copy> TimestampPush<V> for DataPart<V> {
     fn push(&mut self, timestamp: u64, value: V) {
         for i in 0..64 {
             let x = self.data.get_mut(i as usize).unwrap();
-            x.append(timestamp >> i, value);
+            x.push(timestamp >> i, value);
         }
     }
 }

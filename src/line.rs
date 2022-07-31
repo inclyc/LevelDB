@@ -77,7 +77,10 @@ impl<V: Copy> Line<V> {
             }
         }
     }
-    pub fn append(&mut self, timestamp: u64, value: V) {
+}
+
+impl<V: Copy> crate::traits::TimestampPush<V> for Line<V> {
+    fn push(&mut self, timestamp: u64, value: V) {
         if timestamp + 1 < self.end {
             panic!("line: append a timestamp lower than given before");
         } else {
@@ -90,12 +93,14 @@ impl<V: Copy> Line<V> {
 
 #[cfg(test)]
 mod test {
+    use crate::traits::TimestampPush;
+
     #[test]
     fn test_basic() {
         let n = 1000;
         let mut p = super::Line::new(100, 0, |a, b| a + b);
         for i in 0..n {
-            p.append(i, i);
+            p.push(i, i);
             assert!(p.query_value(i).unwrap() == i)
         }
     }
@@ -104,14 +109,14 @@ mod test {
         let n = 100;
         let mut p = super::Line::new(100, 0, |a, b| a + b);
         for i in 0..n {
-            p.append(i, i);
+            p.push(i, i);
         }
         for i in 0..n {
             let x = p.pop_front().unwrap();
             assert_eq!(i, x);
         }
         for i in 0..n {
-            p.append(i + n, i);
+            p.push(i + n, i);
         }
     }
 }

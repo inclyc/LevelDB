@@ -1,7 +1,9 @@
 //! 数据区
 
 use crate::line::Line;
-use crate::traits::SkipQuery;
+use crate::traits::{
+    ConstrainedQuery, GreedyQuery, RangeQuery, Semigroup, SuffixQuery, TimestampPush,
+};
 
 struct DataPart<V> {
     data: Vec<Line<V>>,
@@ -17,8 +19,14 @@ impl<V> DataPart<V> {
     }
 }
 
-impl<V: Copy> DataPart<V> {
-    fn append(&mut self, timestamp: u64, value: V) {
+impl<V> Semigroup<V> for DataPart<V> {
+    fn agg_fn(&self) -> fn(V, V) -> V {
+        self.data.get(0).unwrap().agg_fn()
+    }
+}
+
+impl<V: Copy> TimestampPush<V> for DataPart<V> {
+    fn push(&mut self, timestamp: u64, value: V) {
         for i in 0..64 {
             let x = self.data.get_mut(i as usize).unwrap();
             x.append(timestamp >> i, value);
@@ -26,12 +34,8 @@ impl<V: Copy> DataPart<V> {
     }
 }
 
-impl<V: Copy> SkipQuery<V> for DataPart<V> {
-    fn push(&mut self, timestamp: u64, value: V) {
-        self.append(timestamp, value);
-    }
-
-    fn query(&self, timestamp: u64, r: u64) -> Option<(V, u64)> {
+impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
+    fn constrained_query(&self, timestamp: u64, r: u64) -> Option<(V, u64)> {
         let lvl = timestamp.trailing_zeros();
         let (_, global_r) = self.data.get(0).unwrap().get_range();
         for i in (0..=lvl).rev() {
@@ -51,18 +55,29 @@ impl<V: Copy> SkipQuery<V> for DataPart<V> {
         None
     }
 }
+
+impl<V: Copy> GreedyQuery<V> for DataPart<V> {
+    fn greedy_query(&self, timestamp: u64) -> Option<(V, u64)> {
+        self.constrained_query(timestamp, u64::MAX)
+    }
+}
+impl<V: Copy> RangeQuery<V> for DataPart<V> {}
+impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
+
 #[cfg(test)]
 mod test {
-    use super::{DataPart, SkipQuery};
+    use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
+
+    use super::DataPart;
 
     #[test]
     fn basic() {
         let mut x = DataPart::new(1, |_| 10, |a, b| a + b);
         let n = 1000;
         for i in 1..n {
-            x.append(i, i);
+            x.push(i, i);
         }
-        let r = x.query(4, 30);
+        let r = x.constrained_query(4, 30);
         assert_eq!(r.unwrap().0, 22);
         assert_eq!(r.unwrap().1, 8);
     }
@@ -75,15 +90,25 @@ mod test {
         let mut x = DataPart::new(1, |_| 10, |a, b| a + b);
         let n = 1000;
         for i in 1..n {
-            x.append(i, i);
+            x.push(i, i);
         }
         for i in 1..n {
-            let (sum, r) = x.query(i, 1000).unwrap();
+            let (sum, r) = x.constrained_query(i, 1000).unwrap();
             assert_eq!(answer(i, r), sum);
-            let (sum, r) = x.query(i, i + 1).unwrap();
+            let (sum, r) = x.constrained_query(i, i + 1).unwrap();
             assert_eq!(answer(i, r), sum);
-            let (sum, r) = x.query(i, i + 100).unwrap();
+            let (sum, r) = x.constrained_query(i, i + 100).unwrap();
             assert_eq!(answer(i, r), sum);
+        }
+
+        for i in 1..n {
+            for j in (i + 1)..n {
+                assert_eq!(answer(i, j), x.range_query(i, j).unwrap())
+            }
+        }
+
+        for i in 1..n {
+            assert_eq!(answer(i, 1000), x.suffix_query(i).unwrap().0)
         }
     }
 }

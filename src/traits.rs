@@ -5,82 +5,59 @@ pub trait Semigroup<V> {
 pub trait Monoid<V>: Semigroup<V> {
     // 返回单位元
     fn identity(&self) -> V;
-    /// 查询聚合值（缓存）
-    fn agg(&self, timestamp: u64) -> Option<V>;
-
-    /// 插入并设置值为 value
-    fn set_agg(&mut self, timestamp: u64, value: V);
-
-    /// 检查时间戳是否越界
+}
+pub trait CheckBound<V> {
     fn check_bound(&self, timestamp: u64) -> bool;
 }
 
-pub trait SkipQuery<V> {
+pub trait TimestampPush<V> {
+    /// timestamp 处设置值 value
     fn push(&mut self, timestamp: u64, value: V);
-
-    fn query(&self, timestamp: u64, r: u64) -> Option<(V, u64)>;
 }
 
-pub trait Tree<V: Copy>: Monoid<V> {
-    /// 如果timestamp处对应的值不存在，应该返回单位元
-    fn agg_or_identity(&self, timestamp: u64) -> V {
-        match self.agg(timestamp) {
-            Some(v) => v,
-            None => self.identity(),
-        }
-    }
+pub trait ConstrainedQuery<V> {
+    /// 查询 [timestamp, x) 的聚合值
+    /// 满足 x <= r
+    /// 同时 x 应尽量大
+    fn constrained_query(&self, timestamp: u64, r: u64) -> Option<(V, u64)>;
+}
 
-    /// 插入，类似set_agg, 但是这次用+=
-    fn add_agg(&mut self, timestamp: u64, value: V) {
-        self.set_agg(
-            timestamp,
-            self.agg_fn()(value, self.agg_or_identity(timestamp)),
-        )
-    }
+pub trait GreedyQuery<V> {
+    /// 查询 [timestamp , x) 的聚合值
+    /// 无约束条件， x 越大越好
+    /// 当 x 越界的时候返回 None
+    fn greedy_query(&self, timestamp: u64) -> Option<(V, u64)>;
+}
 
-    /// 聚合查询某一Timestamp之后的值
-    /// 如果 timestamp 这个时间戳从来没有插入过，不会影响结果
-    /// 查询不到任何值，返回单位元
-    /// O(logn)
-    fn query_agg(&self, timestamp: u64) -> V {
-        let mut timestamp = timestamp;
-        let mut result = self.agg_or_identity(timestamp);
-        loop {
-            let step = 1 << (timestamp.trailing_zeros());
-            if !self.check_bound(timestamp + step) {
-                break;
+pub trait SuffixQuery<V>: GreedyQuery<V> + Semigroup<V> {
+    fn suffix_query(&self, timestamp: u64) -> Option<(V, u64)> {
+        match self.greedy_query(timestamp) {
+            Some((v, r)) => {
+                let f = self.agg_fn();
+                match self.suffix_query(r) {
+                    Some((fv, fr)) => Some((f(fv, v), fr)),
+                    None => Some((v, r)),
+                }
             }
-            timestamp = timestamp + step;
-            result = self.agg_fn()(result, self.agg_or_identity(timestamp));
-        }
-        result
-    }
-
-    /// 将某个位置的聚合值更新
-    /// += V
-    fn update_aggregate(&mut self, timestamp: u64, value: V) {
-        let mut timestamp = timestamp;
-        loop {
-            self.add_agg(timestamp, value);
-            if timestamp == 0 {
-                break;
-            }
-            let step = 1 << (timestamp.trailing_zeros()); // timestamp != 0
-            if !self.check_bound(timestamp ^ step) {
-                break;
-            }
-            timestamp ^= step;
+            None => None,
         }
     }
 }
 
-pub trait RangeTree<V: Copy>: Tree<V> + SkipQuery<V> {
-    /// 查询时间戳区间 [start, end) 的所有数据(聚合值)
-    /// 查询不到任何值，返回单位元
-    fn query_range(&self, start: u64, end: u64) -> V {
-        if start >= end {
-            return self.identity();
+pub trait RangeQuery<V>: ConstrainedQuery<V> + Semigroup<V> {
+    fn range_query(&self, l: u64, r: u64) -> Option<V> {
+        match self.constrained_query(l, r) {
+            Some((sum, cqr)) => {
+                if cqr == r {
+                    Some(sum)
+                } else {
+                    match self.range_query(cqr, r) {
+                        Some(half) => Some(self.agg_fn()(sum, half)),
+                        None => None,
+                    }
+                }
+            }
+            None => None,
         }
-        todo!()
     }
 }

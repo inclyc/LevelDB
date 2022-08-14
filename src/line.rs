@@ -1,4 +1,4 @@
-pub struct Line<V> {
+pub(crate) struct Line<V> {
     data: std::collections::VecDeque<Option<V>>,
 
     start: u64,

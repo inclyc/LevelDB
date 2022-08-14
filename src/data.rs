@@ -5,7 +5,7 @@ use crate::traits::{
     ConstrainedQuery, GreedyQuery, RangeQuery, Semigroup, SuffixQuery, TimestampPush,
 };
 
-struct DataPart<V> {
+pub struct DataPart<V> {
     data: Vec<Line<V>>,
 }
 

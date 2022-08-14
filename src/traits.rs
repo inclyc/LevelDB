@@ -6,6 +6,7 @@ pub trait Monoid<V>: Semigroup<V> {
     // 返回单位元
     fn identity(&self) -> V;
 }
+
 pub trait CheckBound<V> {
     fn check_bound(&self, timestamp: u64) -> bool;
 }
@@ -51,10 +52,7 @@ pub trait RangeQuery<V>: ConstrainedQuery<V> + Semigroup<V> {
                 if cqr == r {
                     Some(sum)
                 } else {
-                    match self.range_query(cqr, r) {
-                        Some(half) => Some(self.agg_fn()(sum, half)),
-                        None => None,
-                    }
+                    self.range_query(cqr, r).map(|half| self.agg_fn()(sum, half))
                 }
             }
             None => None,

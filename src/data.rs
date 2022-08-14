@@ -11,7 +11,7 @@ pub struct DataPart<V> {
 
 impl<V> DataPart<V> {
     pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
-        let mut data: Vec<Line<V>> = Vec::new();
+        let mut data: Vec<Line<V>> = Vec::with_capacity(64);
         for i in 0..64 {
             data.push(Line::new(size_fn(i), start >> i, agg_fn));
         }
@@ -21,15 +21,14 @@ impl<V> DataPart<V> {
 
 impl<V> Semigroup<V> for DataPart<V> {
     fn agg_fn(&self) -> fn(V, V) -> V {
-        self.data.get(0).unwrap().agg_fn()
+        self.data[0].agg_fn()
     }
 }
 
 impl<V: Copy> TimestampPush<V> for DataPart<V> {
     fn push(&mut self, timestamp: u64, value: V) {
         for i in 0..64 {
-            let x = self.data.get_mut(i as usize).unwrap();
-            x.push(timestamp >> i, value);
+            self.data[i].push(timestamp >> i, value);
         }
     }
 }
@@ -37,17 +36,14 @@ impl<V: Copy> TimestampPush<V> for DataPart<V> {
 impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
     fn constrained_query(&self, timestamp: u64, r: u64) -> Option<(V, u64)> {
         let lvl = timestamp.trailing_zeros();
-        let (_, global_r) = self.data.get(0).unwrap().get_range();
+        let (_, global_r) = self.data[0].get_range();
         for i in (0..=lvl).rev() {
-            let x = self.data.get(i as usize).unwrap();
+            let x = &self.data[i as usize];
             if x.check_range(timestamp >> i) {
                 let level_r = std::cmp::min((1u64 << i) + timestamp, global_r);
                 if level_r <= r {
-                    match x.query_value(timestamp >> i) {
-                        Some(v) => {
-                            return Some((*v, level_r));
-                        }
-                        None => (),
+                    if let Some(v) = x.query_value(timestamp >> i) {
+                        return Some((*v, level_r));
                     }
                 }
             }
@@ -61,6 +57,7 @@ impl<V: Copy> GreedyQuery<V> for DataPart<V> {
         self.constrained_query(timestamp, u64::MAX)
     }
 }
+
 impl<V: Copy> RangeQuery<V> for DataPart<V> {}
 impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
 
@@ -83,8 +80,9 @@ mod test {
     }
 
     fn answer(l: u64, r: u64) -> u64 {
-        return (r - l) * (l + r - 1) / 2;
+        (r - l) * (l + r - 1) / 2
     }
+
     #[test]
     fn correct() {
         let mut x = DataPart::new(1, |_| 10, |a, b| a + b);

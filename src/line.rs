@@ -14,7 +14,7 @@ impl<V> Line<V> {
     }
 
     pub fn new(length: usize, start: u64, agg_fn: fn(V, V) -> V) -> Line<V> {
-        let mut data = std::collections::VecDeque::new();
+        let mut data = std::collections::VecDeque::with_capacity(length);
         data.resize_with(length, || None);
         // 一开始 end == start, 这时表示为空
         // 半开半闭语义 [start, end)
@@ -35,8 +35,7 @@ impl<V> Line<V> {
 
     /// 查询位于 timestamp 处的具体数值
     pub fn query_value(&self, timestamp: u64) -> &Option<V> {
-        let idx = self.get_idx(timestamp);
-        self.data.get(idx.try_into().unwrap()).unwrap()
+        &self.data[self.get_idx(timestamp)]
     }
 
     /// 这个 Line 结构保存的时间的范围
@@ -67,15 +66,11 @@ impl<V> crate::traits::Semigroup<V> for Line<V> {
 impl<V: Copy> Line<V> {
     pub fn insert_or_update(&mut self, timestamp: u64, value: V) {
         let idx = self.get_idx(timestamp);
-        let x = self.data.get_mut(idx).unwrap();
-        match x {
-            Some(origin_value) => {
-                *origin_value = (self.agg_fn)(*origin_value, value);
-            }
-            None => {
-                *x = Some(value);
-            }
-        }
+        let x = &mut self.data[idx];
+        *x = Some(match x {
+            Some(origin_value) => (self.agg_fn)(*origin_value, value),
+            None => value
+        });
     }
 }
 
@@ -104,6 +99,7 @@ mod test {
             assert!(p.query_value(i).unwrap() == i)
         }
     }
+
     #[test]
     fn test_pop_front() {
         let n = 100;

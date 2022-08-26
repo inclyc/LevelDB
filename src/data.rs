@@ -1,5 +1,8 @@
 //! 数据区
 
+use std::path::Path;
+use std::{cmp, fs::File, io};
+
 use crate::line::Line;
 use crate::traits::{
     ConstrainedQuery, GreedyQuery, RangeQuery, Semigroup, SuffixQuery, TimestampPush,
@@ -9,11 +12,23 @@ pub struct DataPart<V> {
     data: Vec<Line<V>>,
 }
 
+#[cfg(feature = "trace_io")]
+impl<V> DataPart<V> {
+    fn dump_stat(&self, path: &Path) -> io::Result<()> {
+        let mut file = File::create(path)?;
+        for line in &self.data {
+            line.stat.dump(&mut file)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl<V> DataPart<V> {
     pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<Line<V>> = Vec::with_capacity(64);
         for i in 0..64 {
-            data.push(Line::new(size_fn(i), start >> i, agg_fn));
+            data.push(Line::new(i as i32, size_fn(i), start >> i, agg_fn));
         }
         DataPart { data }
     }
@@ -40,7 +55,7 @@ impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
         for i in (0..=lvl).rev() {
             let x = &self.data[i as usize];
             if x.check_range(timestamp >> i) {
-                let level_r = std::cmp::min((1u64 << i) + timestamp, global_r);
+                let level_r = cmp::min((1u64 << i) + timestamp, global_r);
                 if level_r <= r {
                     if let Some(v) = x[timestamp >> i] {
                         return Some((v, level_r));
@@ -64,6 +79,7 @@ impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
 #[cfg(test)]
 mod test {
     use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
+    use std::path::Path;
 
     use super::DataPart;
 
@@ -75,8 +91,9 @@ mod test {
             x.push(i, i);
         }
         let r = x.constrained_query(4, 30);
-        assert_eq!(r.unwrap().0, 22);
-        assert_eq!(r.unwrap().1, 8);
+        assert_eq!(r, Some((22, 8)));
+
+        x.dump_stat(Path::new("stat/basic.txt")).unwrap();
     }
 
     fn answer(l: u64, r: u64) -> u64 {
@@ -108,5 +125,14 @@ mod test {
         for i in 1..n {
             assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
         }
+        let mut rng = rand::thread_rng();
+        let mut arr = Vec::with_capacity(n as usize);
+        for i in (n..=1).rev() {
+            arr.push(i);
+        }
+        for &i in arr.iter() {
+            assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
+        }
+        x.dump_stat(Path::new("stat/correct.txt")).unwrap();
     }
 }

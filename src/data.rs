@@ -42,8 +42,8 @@ impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
             if x.check_range(timestamp >> i) {
                 let level_r = std::cmp::min((1u64 << i) + timestamp, global_r);
                 if level_r <= r {
-                    if let Some(v) = x.query_value(timestamp >> i) {
-                        return Some((*v, level_r));
+                    if let Some(v) = x[timestamp >> i] {
+                        return Some((v, level_r));
                     }
                 }
             }

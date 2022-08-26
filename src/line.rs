@@ -1,3 +1,5 @@
+use std::ops::{Index, IndexMut};
+
 pub(crate) struct Line<V> {
     data: std::collections::VecDeque<Option<V>>,
 
@@ -33,11 +35,6 @@ impl<V> Line<V> {
         ret.unwrap_or(None)
     }
 
-    /// 查询位于 timestamp 处的具体数值
-    pub fn query_value(&self, timestamp: u64) -> &Option<V> {
-        &self.data[self.get_idx(timestamp)]
-    }
-
     /// 这个 Line 结构保存的时间的范围
     pub fn get_range(&self) -> (u64, u64) {
         (self.start, self.end)
@@ -63,14 +60,26 @@ impl<V> crate::traits::Semigroup<V> for Line<V> {
     }
 }
 
+impl<V> Index<u64> for Line<V> {
+    type Output = Option<V>;
+    fn index(&self, timestamp: u64) -> &Self::Output {
+        &self.data[self.get_idx(timestamp)]
+    }
+}
+
+impl<V> IndexMut<u64> for Line<V> {
+    fn index_mut(&mut self, timestamp: u64) -> &mut Self::Output {
+        let idx = self.get_idx(timestamp);
+        &mut self.data[idx]
+    }
+}
+
 impl<V: Copy> Line<V> {
     pub fn insert_or_update(&mut self, timestamp: u64, value: V) {
-        let idx = self.get_idx(timestamp);
-        let x = &mut self.data[idx];
-        *x = Some(match x {
-            Some(origin_value) => (self.agg_fn)(*origin_value, value),
+        self[timestamp] = Some(match self[timestamp] {
+            Some(origin_value) => (self.agg_fn)(origin_value, value),
             None => value,
-        });
+        })
     }
 }
 
@@ -96,7 +105,7 @@ mod test {
         let mut p = super::Line::new(100, 0, |a, b| a + b);
         for i in 0..n {
             p.push(i, i);
-            assert!(p.query_value(i).unwrap() == i)
+            assert_eq!(p[i], Some(i))
         }
     }
 

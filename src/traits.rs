@@ -32,30 +32,23 @@ pub trait GreedyQuery<V> {
 
 pub trait SuffixQuery<V>: GreedyQuery<V> + Semigroup<V> {
     fn suffix_query(&self, timestamp: u64) -> Option<(V, u64)> {
-        match self.greedy_query(timestamp) {
-            Some((v, r)) => {
-                let f = self.agg_fn();
-                match self.suffix_query(r) {
-                    Some((fv, fr)) => Some((f(fv, v), fr)),
-                    None => Some((v, r)),
-                }
-            }
-            None => None,
-        }
+        self.greedy_query(timestamp)
+            .map(|(v, r)| match self.suffix_query(r) {
+                Some((fv, fr)) => (self.agg_fn()(fv, v), fr),
+                None => (v, r),
+            })
     }
 }
 
 pub trait RangeQuery<V>: ConstrainedQuery<V> + Semigroup<V> {
     fn range_query(&self, l: u64, r: u64) -> Option<V> {
-        match self.constrained_query(l, r) {
-            Some((sum, cqr)) => {
-                if cqr == r {
-                    Some(sum)
-                } else {
-                    self.range_query(cqr, r).map(|half| self.agg_fn()(sum, half))
-                }
+        self.constrained_query(l, r).and_then(|(sum, cqr)| {
+            if cqr == r {
+                Some(sum)
+            } else {
+                self.range_query(cqr, r)
+                    .map(|half| self.agg_fn()(sum, half))
             }
-            None => None,
-        }
+        })
     }
 }

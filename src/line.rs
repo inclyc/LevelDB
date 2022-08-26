@@ -69,7 +69,7 @@ impl<V: Copy> Line<V> {
         let x = &mut self.data[idx];
         *x = Some(match x {
             Some(origin_value) => (self.agg_fn)(*origin_value, value),
-            None => value
+            None => value,
         });
     }
 }
@@ -108,8 +108,7 @@ mod test {
             p.push(i, i);
         }
         for i in 0..n {
-            let x = p.pop_front().unwrap();
-            assert_eq!(i, x);
+            assert_eq!(Some(i), p.pop_front());
         }
         for i in 0..n {
             p.push(i + n, i);

@@ -101,7 +101,7 @@ mod test {
 
         for i in 1..n {
             for j in (i + 1)..n {
-                assert_eq!(answer(i, j), x.range_query(i, j).unwrap())
+                assert_eq!(Some(answer(i, j)), x.range_query(i, j))
             }
         }
 

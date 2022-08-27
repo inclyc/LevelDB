@@ -3,11 +3,12 @@ use std::{
     collections::VecDeque,
     fs::File,
     io::{self, Write},
-    lazy::SyncLazy,
     ops::{Index, IndexMut},
     sync::Mutex,
     time::Duration,
 };
+
+use lazy_static::lazy_static;
 
 use crate::traits::{Semigroup, TimestampPush};
 
@@ -15,8 +16,10 @@ use crate::traits::{Semigroup, TimestampPush};
 use crate::kv::KVStorage;
 
 #[cfg(feature = "trace_io")]
-pub(crate) static KV: SyncLazy<Mutex<KVStorage<(i32, u64)>>> =
-    SyncLazy::new(|| KVStorage::new(500, Duration::from_micros(2)).into());
+lazy_static! {
+    static ref KV: Mutex<KVStorage<(i32, u64)>> =
+        KVStorage::new(500, Duration::from_micros(2)).into();
+}
 
 #[cfg(feature = "trace_io")]
 pub(crate) struct Stat {

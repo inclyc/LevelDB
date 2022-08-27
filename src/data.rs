@@ -125,7 +125,6 @@ mod test {
         for i in 1..n {
             assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
         }
-        let mut rng = rand::thread_rng();
         let mut arr = Vec::with_capacity(n as usize);
         for i in (n..=1).rev() {
             arr.push(i);

@@ -15,4 +15,3 @@ rand = "*"
 [features]
 default = ["trace_io"]
 trace_io = []
-simulate_kv = ["trace_io"]

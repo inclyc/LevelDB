@@ -33,7 +33,7 @@ pub(crate) struct Stat {
 #[cfg(feature = "trace_io")]
 impl Stat {
     fn new(id: i32) -> Self {
-        Stat {
+        Self {
             id,
             read: Vec::new().into(),
             write: Vec::new(),
@@ -96,7 +96,7 @@ impl<V> Line<V> {
         data.resize_with(length, || None);
         // 一开始 end == start, 这时表示为空
         // 半开半闭语义 [start, end)
-        Line {
+        Self {
             data,
             start,
             end: start,

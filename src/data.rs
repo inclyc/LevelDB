@@ -30,7 +30,7 @@ impl<V> DataPart<V> {
         for i in 0..64 {
             data.push(Line::new(i as i32, size_fn(i), start >> i, agg_fn));
         }
-        DataPart { data }
+        Self { data }
     }
 }
 

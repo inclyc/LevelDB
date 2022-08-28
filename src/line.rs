@@ -5,7 +5,6 @@ use std::{
     io::{self, Write},
     ops::{Index, IndexMut},
     sync::Mutex,
-    time::Duration,
 };
 
 use lazy_static::lazy_static;
@@ -17,8 +16,7 @@ use crate::kv::KVStorage;
 
 #[cfg(feature = "trace_io")]
 lazy_static! {
-    static ref KV: Mutex<KVStorage<(i32, u64)>> =
-        KVStorage::new(500, Duration::from_micros(2)).into();
+    static ref KV: Mutex<KVStorage<(i32, u64)>> = KVStorage::new(500).into();
 }
 
 #[cfg(feature = "trace_io")]

@@ -104,13 +104,6 @@ impl<V> Line<V> {
             stat: Stat::new(id),
         }
     }
-
-    /// 获取并移除队列首部元素，取得所有权
-    pub fn pop_front(&mut self) -> Option<V> {
-        let ret = self.data.pop_front();
-        self.start += 1;
-        ret.unwrap_or(None)
-    }
 }
 
 // 查询位于 timestamp 处的具体数值
@@ -219,21 +212,6 @@ mod test {
         for i in 0..n {
             p.push(i, i);
             assert_eq!(p[i], Some(i))
-        }
-    }
-
-    #[test]
-    fn test_pop_front() {
-        let n = 100;
-        let mut p = super::Line::new(-1, 100, 0, |a, b| a + b);
-        for i in 0..n {
-            p.push(i, i);
-        }
-        for i in 0..n {
-            assert_eq!(Some(i), p.pop_front());
-        }
-        for i in 0..n {
-            p.push(i + n, i);
         }
     }
 }

@@ -12,19 +12,7 @@ pub struct DataPart<V> {
     data: Vec<Line<V>>,
 }
 
-#[cfg(feature = "trace_io")]
-impl<V> DataPart<V> {
-    fn dump_stat(&self, path: &Path) -> io::Result<()> {
-        let mut file = File::create(path)?;
-        for line in &self.data {
-            line.stat.dump(&mut file)?;
-        }
-
-        Ok(())
-    }
-}
-
-impl<V> DataPart<V> {
+impl<V: Copy> DataPart<V> {
     pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<Line<V>> = Vec::with_capacity(64);
         for i in 0..64 {
@@ -49,15 +37,15 @@ impl<V: Copy> TimestampPush<V> for DataPart<V> {
 }
 
 impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
-    fn constrained_query(&self, timestamp: u64, r: u64) -> Option<(V, u64)> {
+    fn constrained_query(&mut self, timestamp: u64, r: u64) -> Option<(V, u64)> {
         let lvl = timestamp.trailing_zeros();
         let (_, global_r) = self.data[0].get_range();
         for i in (0..=lvl).rev() {
-            let x = &self.data[i as usize];
+            let x = &mut self.data[i as usize];
             if x.check_range(timestamp >> i) {
                 let level_r = cmp::min((1u64 << i) + timestamp, global_r);
                 if level_r <= r {
-                    if let Some(v) = x[timestamp >> i] {
+                    if let Some(v) = x.get(timestamp >> i) {
                         return Some((v, level_r));
                     }
                 }
@@ -68,7 +56,7 @@ impl<V: Copy> ConstrainedQuery<V> for DataPart<V> {
 }
 
 impl<V: Copy> GreedyQuery<V> for DataPart<V> {
-    fn greedy_query(&self, timestamp: u64) -> Option<(V, u64)> {
+    fn greedy_query(&mut self, timestamp: u64) -> Option<(V, u64)> {
         self.constrained_query(timestamp, u64::MAX)
     }
 }
@@ -92,8 +80,6 @@ mod test {
         }
         let r = x.constrained_query(4, 30);
         assert_eq!(r, Some((22, 8)));
-
-        x.dump_stat(Path::new("stat/basic.txt")).unwrap();
     }
 
     fn answer(l: u64, r: u64) -> u64 {
@@ -132,6 +118,5 @@ mod test {
         for &i in arr.iter() {
             assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
         }
-        x.dump_stat(Path::new("stat/correct.txt")).unwrap();
     }
 }

@@ -20,18 +20,18 @@ pub trait ConstrainedQuery<V> {
     /// 查询 [timestamp, x) 的聚合值
     /// 满足 x <= r
     /// 同时 x 应尽量大
-    fn constrained_query(&self, timestamp: u64, r: u64) -> Option<(V, u64)>;
+    fn constrained_query(&mut self, timestamp: u64, r: u64) -> Option<(V, u64)>;
 }
 
 pub trait GreedyQuery<V> {
     /// 查询 [timestamp , x) 的聚合值
     /// 无约束条件， x 越大越好
     /// 当 x 越界的时候返回 None
-    fn greedy_query(&self, timestamp: u64) -> Option<(V, u64)>;
+    fn greedy_query(&mut self, timestamp: u64) -> Option<(V, u64)>;
 }
 
 pub trait SuffixQuery<V>: GreedyQuery<V> + Semigroup<V> {
-    fn suffix_query(&self, timestamp: u64) -> Option<(V, u64)> {
+    fn suffix_query(&mut self, timestamp: u64) -> Option<(V, u64)> {
         self.greedy_query(timestamp)
             .map(|(v, r)| match self.suffix_query(r) {
                 Some((fv, fr)) => (self.agg_fn()(fv, v), fr),
@@ -41,7 +41,7 @@ pub trait SuffixQuery<V>: GreedyQuery<V> + Semigroup<V> {
 }
 
 pub trait RangeQuery<V>: ConstrainedQuery<V> + Semigroup<V> {
-    fn range_query(&self, l: u64, r: u64) -> Option<V> {
+    fn range_query(&mut self, l: u64, r: u64) -> Option<V> {
         self.constrained_query(l, r).and_then(|(sum, cqr)| {
             if cqr == r {
                 Some(sum)

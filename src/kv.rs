@@ -5,6 +5,8 @@ use lru::LruCache;
 pub(crate) struct KVStorage<K, V> {
     lru: LruCache<K, V>,
 
+    lru_base: LruCache<K, V>,
+
     #[cfg(feature = "trace_io")]
     pub(crate) total_wait: u64,
 }
@@ -16,8 +18,8 @@ where
 {
     pub(crate) fn new(cap: usize) -> Self {
         Self {
-            lru: LruCache::unbounded(),
-
+            lru: LruCache::new(cap),
+            lru_base: LruCache::unbounded(),
             #[cfg(feature = "trace_io")]
             total_wait: 0,
         }
@@ -30,11 +32,13 @@ where
             if cfg!(feature = "trace_io") {
                 self.total_wait += 1;
             }
-            None
+            self.lru_base.get(&key).copied()
         }
     }
 
     pub(crate) fn put(&mut self, key: K, value: V) {
-        self.lru.put(key, value);
+        if let Some((k, v)) = self.lru.push(key, value) {
+            self.lru_base.put(k, v);
+        }
     }
 }

@@ -1,6 +1,5 @@
-use std::hash::Hash;
-
 use lru::LruCache;
+use std::hash::Hash;
 
 pub(crate) struct KVStorage<K, V> {
     lru: LruCache<K, V>,

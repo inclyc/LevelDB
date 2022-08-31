@@ -1,7 +1,6 @@
 //! 数据区
 
-use std::path::Path;
-use std::{cmp, fs::File, io};
+use std::cmp;
 
 use crate::line::Line;
 use crate::traits::{
@@ -66,10 +65,8 @@ impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
 
 #[cfg(test)]
 mod test {
-    use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
-    use std::path::Path;
-
     use super::DataPart;
+    use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
 
     #[test]
     fn basic() {

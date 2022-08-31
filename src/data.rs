@@ -16,7 +16,7 @@ impl<V: Copy> DataPart<V> {
     pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<Line<V>> = Vec::with_capacity(64);
         for i in 0..64 {
-            data.push(Line::new(i as i32, size_fn(i), start >> i, agg_fn));
+            data.push(Line::new(size_fn(i), start >> i, agg_fn));
         }
         Self { data }
     }

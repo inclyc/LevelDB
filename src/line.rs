@@ -18,7 +18,7 @@ impl<V: Copy> Line<V> {
         timestamp - self.start
     }
 
-    pub fn new(id: i32, length: usize, start: u64, agg_fn: fn(V, V) -> V) -> Line<V> {
+    pub fn new(length: usize, start: u64, agg_fn: fn(V, V) -> V) -> Line<V> {
         let data = KVStorage::new(length);
         // 一开始 end == start, 这时表示为空
         // 半开半闭语义 [start, end)
@@ -85,7 +85,7 @@ mod test {
     #[test]
     fn test_basic() {
         let n = 1000;
-        let mut p = super::Line::new(-1, 100, 0, |a, b| a + b);
+        let mut p = super::Line::new(10, 0, |a, b| a + b);
         for i in 0..n {
             p.push(i, i);
             assert_eq!(p.get(i), Some(i))

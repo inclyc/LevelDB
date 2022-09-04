@@ -49,6 +49,10 @@ impl<V> Line<V> {
         let (start, end) = self.get_range();
         start <= timestamp && timestamp < end
     }
+
+    pub fn cache_miss(&self) -> u64 {
+        self.data.total_wait
+    }
 }
 
 impl<V> Semigroup<V> for Line<V> {

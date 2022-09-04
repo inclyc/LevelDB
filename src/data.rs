@@ -12,7 +12,7 @@ pub struct DataPart<V> {
 }
 
 impl<V: Copy> DataPart<V> {
-    pub fn new(start: u64, size_fn: fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
+    pub fn new(start: u64, size_fn: impl Fn(u64) -> usize, agg_fn: fn(V, V) -> V) -> DataPart<V> {
         let mut data: Vec<Line<V>> = Vec::with_capacity(64);
         for i in 0..64 {
             data.push(Line::new(size_fn(i), start >> i, agg_fn));
@@ -114,6 +114,26 @@ mod test {
         }
         for &i in arr.iter() {
             assert_eq!(answer(i, n), x.suffix_query(i).unwrap().0)
+        }
+    }
+
+    #[test]
+    fn bench_lru_size() {
+        for i in 10..100 {
+            let mut x = DataPart::new(1, |_| i, |a, b| a + b);
+            let n = 100;
+            for i in 1..n {
+                x.push(i, i)
+            }
+            for l in 1..n {
+                for r in (l + 1)..n {
+                    assert_eq!(Some(answer(l, r)), x.range_query(l, r))
+                }
+            }
+            for line in x.data {
+                eprint!("{} ", line.cache_miss())
+            }
+            eprintln!();
         }
     }
 }

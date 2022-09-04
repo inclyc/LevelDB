@@ -3,7 +3,7 @@ use crate::traits::{Semigroup, TimestampPush};
 #[cfg(feature = "trace_io")]
 use crate::kv::KVStorage;
 
-pub(crate) struct Line<V> {
+pub struct Line<V> {
     data: KVStorage<u64, V>,
 
     start: u64,

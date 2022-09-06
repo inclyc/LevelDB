@@ -27,11 +27,16 @@ where
     pub fn get(&mut self, key: K) -> Option<V> {
         if self.lru.contains(&key) {
             self.lru.get(&key).copied()
-        } else {
-            if cfg!(feature = "trace_io") && self.lru_base.contains(&key) {
+        } else if let Some(value) = self.lru_base.get(&key) {
+            let value = *value;
+            if cfg!(feature = "trace_io") {
                 self.cache_miss += 1;
             }
-            self.lru_base.get(&key).copied()
+            assert!(!self.lru.contains(&key));
+            self.put(key, value);
+            Some(value)
+        } else {
+            None
         }
     }
 

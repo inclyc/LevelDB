@@ -51,7 +51,7 @@ impl<V> Line<V> {
     }
 
     pub fn cache_miss(&self) -> u64 {
-        self.data.total_wait
+        self.data.cache_miss
     }
 }
 

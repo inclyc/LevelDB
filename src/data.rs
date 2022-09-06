@@ -67,7 +67,12 @@ impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
 mod test {
     use super::DataPart;
     use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
-    use rand::{distributions::Standard, prelude::StdRng, Rng, SeedableRng};
+    use rand::{
+        distributions::Standard,
+        prelude::{Distribution, StdRng},
+        Rng, SeedableRng,
+    };
+    use statrs::distribution::Normal;
     use std::mem::swap;
 
     #[test]
@@ -160,6 +165,35 @@ mod test {
                     swap(&mut l, &mut r);
                 }
                 assert_eq!(Some(answer(l, r)), x.range_query(l, r))
+            }
+            for line in x.data {
+                eprint!("{} ", line.cache_miss())
+            }
+            eprintln!();
+        }
+    }
+
+    #[test]
+    fn bench_lru_consist() {
+        let mut rng = StdRng::from_entropy();
+        for sigma in 2..150 {
+            let mut x = DataPart::new(1, |_| 50, |a, b| a + b);
+            let n = 1000;
+            for i in 1..n {
+                x.push(i, i)
+            }
+            let test_case = 1000;
+            let normal = Normal::new((n as f64) / 2f64, sigma as f64).unwrap();
+            for _ in 0..test_case {
+                let mut l = (normal.sample(&mut rng) as u64).clamp(1, n);
+                let mut r = (normal.sample(&mut rng) as u64).clamp(1, n);
+                if l == r {
+                    continue;
+                }
+                if l > r {
+                    (l, r) = (r, l);
+                }
+                assert_eq!(Some(answer(l, r)), x.range_query(l, r));
             }
             for line in x.data {
                 eprint!("{} ", line.cache_miss())

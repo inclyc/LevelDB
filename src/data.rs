@@ -67,6 +67,8 @@ impl<V: Copy> SuffixQuery<V> for DataPart<V> {}
 mod test {
     use super::DataPart;
     use crate::traits::{ConstrainedQuery, RangeQuery, SuffixQuery, TimestampPush};
+    use rand::{distributions::Standard, prelude::StdRng, Rng, SeedableRng};
+    use std::mem::swap;
 
     #[test]
     fn basic() {
@@ -129,6 +131,35 @@ mod test {
                 for r in (l + 1)..n {
                     assert_eq!(Some(answer(l, r)), x.range_query(l, r))
                 }
+            }
+            for line in x.data {
+                eprint!("{} ", line.cache_miss())
+            }
+            eprintln!();
+        }
+    }
+
+    #[test]
+    fn bench_lru_rand() {
+        for i in 10..150 {
+            let mut x = DataPart::new(1, |_| i, |a, b| a + b);
+            let n = 100;
+            for i in 1..n {
+                x.push(i, i)
+            }
+            let test_case = 1000;
+            for _ in 0..test_case {
+                let l: f64 = StdRng::from_entropy().sample(Standard);
+                let r: f64 = StdRng::from_entropy().sample(Standard);
+                let mut l = (l * (n as f64)) as u64 + 1;
+                let mut r = (r * (n as f64)) as u64 + 1;
+                if l == r {
+                    continue;
+                }
+                if l > r {
+                    swap(&mut l, &mut r);
+                }
+                assert_eq!(Some(answer(l, r)), x.range_query(l, r))
             }
             for line in x.data {
                 eprint!("{} ", line.cache_miss())

@@ -28,7 +28,7 @@ where
         if self.lru.contains(&key) {
             self.lru.get(&key).copied()
         } else {
-            if cfg!(feature = "trace_io") {
+            if cfg!(feature = "trace_io") && self.lru_base.contains(&key) {
                 self.total_wait += 1;
             }
             self.lru_base.get(&key).copied()

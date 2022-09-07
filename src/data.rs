@@ -72,8 +72,8 @@ mod test {
         prelude::{Distribution, StdRng},
         Rng, SeedableRng,
     };
-    use statrs::distribution::Normal;
-    use std::mem::swap;
+    use statrs::distribution::{Normal, Uniform};
+    use std::{mem::swap, time::Instant};
 
     #[test]
     fn basic() {
@@ -200,5 +200,37 @@ mod test {
             }
             eprintln!();
         }
+    }
+    #[test]
+    fn bench_speed() {
+        let n = 1e5 as u64;
+        let mut rng = StdRng::from_entropy();
+        let mut x = DataPart::new(1, |_| ((n / 2) as usize), |a, b| a + b);
+        let begin = Instant::now();
+        for i in 1..n {
+            x.push(i, i)
+        }
+        eprintln!("{:?}ns", begin.elapsed().as_nanos() / (n as u128));
+        let test_case = 1000;
+        let uniform = Uniform::new(1f64, n as f64).unwrap();
+        let begin = Instant::now();
+        for _ in 0..test_case {
+            let mut l = (uniform.sample(&mut rng) as u64).clamp(1, n);
+            let mut r = (uniform.sample(&mut rng) as u64).clamp(1, n);
+            if l == r {
+                continue;
+            }
+            if l > r {
+                (l, r) = (r, l);
+            }
+            x.range_query(l, r);
+        }
+
+        eprintln!("{:?}ns", begin.elapsed().as_nanos() / (test_case as u128));
+        let mut sum_cache_miss = 0;
+        for line in x.data {
+            sum_cache_miss += line.cache_miss()
+        }
+        eprintln!("Cache Misses: {}", sum_cache_miss);
     }
 }

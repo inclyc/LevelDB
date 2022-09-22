@@ -30,6 +30,9 @@ impl<V> Semigroup<V> for DataPart<V> {
 impl<V: Copy> TimestampPush<V> for DataPart<V> {
     fn push(&mut self, timestamp: u64, value: V) {
         for i in 0..64 {
+            if timestamp >> i == 0 {
+                break;
+            }
             self.data[i].push(timestamp >> i, value);
         }
     }

@@ -75,9 +75,12 @@ mod test {
         prelude::{Distribution, StdRng},
         Rng, SeedableRng,
     };
+    use serde_derive::Deserialize;
     use statrs::distribution::{Normal, Uniform};
     use std::{mem::swap, time::Instant};
-
+    extern crate csv;
+    extern crate serde;
+    extern crate serde_derive;
     #[test]
     fn basic() {
         let mut x = DataPart::new(1, |_| 10, |a, b| a + b);
@@ -235,5 +238,50 @@ mod test {
             sum_cache_miss += line.cache_miss()
         }
         eprintln!("Cache Misses: {}", sum_cache_miss);
+    }
+    #[test]
+    fn bench_compare()
+    {
+        #[derive(Debug, Deserialize, Eq, PartialEq)]
+        struct WriteRecord {
+            timestamp: u64,
+            data: u64,
+        }
+        #[derive(Debug, Deserialize, Eq, PartialEq)]
+        struct QueryRecord {
+            l: u64,
+            r: u64,
+        }
+
+        let mut write_list: Vec<WriteRecord> = vec!();
+        let mut max_timestamp: u64 = 0;
+
+        let mut rdr = csv::Reader::from_path("test/data.csv").unwrap();
+        for result in rdr.deserialize() {
+            let record: WriteRecord = result.unwrap();
+            max_timestamp = std::cmp::max(record.timestamp, max_timestamp);
+            write_list.push(record);
+        }
+
+        let begin = Instant::now();
+        let mut x = DataPart::new(1, |_| max_timestamp as usize, |a, b| a + b); 
+        for record in write_list.iter() {
+            x.push(record.timestamp, record.data)
+        }
+        eprintln!("{:?}ns", begin.elapsed().as_nanos() / (write_list.len() as u128));
+
+        let mut query_list: Vec<QueryRecord> = vec!();
+
+        let mut rdr = csv::Reader::from_path("test/query.csv").unwrap();
+        for result in rdr.deserialize() {
+            let record: QueryRecord = result.unwrap();
+            query_list.push(record);
+        }
+
+        let begin = Instant::now();
+        for record in query_list.iter() {
+            x.range_query(record.l, record.r);
+        }
+        eprintln!("{:?}ns", begin.elapsed().as_nanos() / (query_list.len() as u128));
     }
 }

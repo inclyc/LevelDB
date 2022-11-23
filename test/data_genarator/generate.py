@@ -37,3 +37,4 @@ if __name__ == '__main__':
     generator = mariadb.mariadb()
     generate_query_list(generator, (1,2), "mariadb_query", seed)
     generate_query_list(generator, (1,2), "mariadb_data", seed)
+  
